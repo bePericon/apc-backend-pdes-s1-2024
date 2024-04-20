@@ -1,0 +1,11 @@
+[
+  {
+    "name": "admin",
+    "description": "Permiso para realizar todas las acciones"
+  },
+  {
+    "name": "comentar",
+    "description": "Permiso para poder comentar productos"
+  },
+  { "name": "valorar", "description": "Permiso para poder valorar productos" }
+]

@@ -1,0 +1,45 @@
+version: '3.1'
+
+services:
+  app:
+    container_name: apc-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - mongo
+    ports:
+      - '8080:8080'
+    volumes:
+      - .:/opt/app
+      - /opt/app/node_modules
+    networks:
+      - apc-network
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    restart: always
+    ports:
+      - '27017:27017'
+    volumes:
+      - ./db_data/:/data/db
+      - /etc/timezone:/etc/timezone:ro
+    networks:
+      - apc-network
+
+  mongo-express:
+    image: 'mongo-express:latest'
+    container_name: mongo-express-apc
+    depends_on:
+      - mongo
+    ports:
+      - '8081:8081'
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+    networks:
+      - apc-network
+
+networks:
+  apc-network:
+    driver: bridge

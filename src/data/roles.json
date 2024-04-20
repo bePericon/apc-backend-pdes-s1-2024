@@ -1,0 +1,4 @@
+[
+  { "name": "comprador", "description": "Perfil comprador" },
+  { "name": "admin", "description": "Perfil administrador" }
+]
