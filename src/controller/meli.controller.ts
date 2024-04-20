@@ -49,7 +49,7 @@ export default class MeliController {
     const user_id = req.cookies['user_id'];
 
     const response = await this.searchItemById(req.params.id, access_token);
-    const { title, pictures, price, ..._ } = response;
+    const { id, title, pictures, price, ..._ } = response;
 
     let result;
     const favorite = await Favorite.findOne({
@@ -58,9 +58,9 @@ export default class MeliController {
     }).exec();
 
     if (favorite) {
-      result = { title, pictures, price, isFavorite: favorite };
+      result = { id, title, pictures, price, isFavorite: favorite };
     } else {
-      result = { title, pictures, price };
+      result = { id, title, pictures, price };
     }
 
     return res
