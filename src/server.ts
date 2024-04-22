@@ -17,6 +17,8 @@ import RoleController from './controller/role.controller';
 import PermissionController from './controller/permission.controller';
 import FavoriteController from './controller/favorite.controller';
 import { loadData } from './data/load';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './swagger';
 
 export class ServerApp extends Server {
   private readonly STARTED_MSG = 'Server APC running on port: ';
@@ -35,6 +37,8 @@ export class ServerApp extends Server {
     this.setupControllers();
 
     this.app.use(errorMiddleware);
+
+    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
     this.initConnectionDB();
   }
