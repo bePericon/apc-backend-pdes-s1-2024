@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import Permission from '../model/permissionSchema';
 import Role from '../model/roleSchema';
 import User from '../model/userSchema';
+import { genSaltSync, hashSync } from 'bcrypt';
 
 export const loadData = async () => {
-  const isEmpty = (await Permission.find({})).length === 0;
-  if (isEmpty) {
+  const isEmptyPermissions = (await Permission.find({})).length === 0;
+  if (isEmptyPermissions) {
     const permissionsJson = readFileSync(
       `${process.cwd()}/src/data/permissions.json`
     ).toString();
@@ -15,7 +16,10 @@ export const loadData = async () => {
       const permission = new Permission(p);
       await permission.save();
     }
+  }
 
+  const isEmptyRoles = (await Role.find({})).length === 0;
+  if (isEmptyRoles) {
     const rolesJson = readFileSync(`${process.cwd()}/src/data/roles.json`).toString();
     const roles = JSON.parse(rolesJson);
 
@@ -41,14 +45,18 @@ export const loadData = async () => {
         await role.save();
       }
     }
+  }
 
+  const isEmptyUsers = (await User.find({})).length === 0;
+  if (isEmptyUsers) {
     const usersJson = readFileSync(`${process.cwd()}/src/data/users.json`).toString();
     const users = JSON.parse(usersJson);
 
     const foundRoles = await Role.find({});
     for (let u of users) {
       if (u.email === 'admin@email.com') {
-        const user = new User(u);
+        const salt = genSaltSync(10);
+        const user = new User({ ...u, password: hashSync(u.password, salt) });
 
         const r = foundRoles.find((fr) => fr.name === 'admin');
         user.roles.push(r?._id);
@@ -57,7 +65,8 @@ export const loadData = async () => {
       }
 
       if (u.email === 'ucomprador@email.com') {
-        const user = new User(u);
+        const salt = genSaltSync(10);
+        const user = new User({ ...u, password: hashSync(u.password, salt) });
 
         const r = foundRoles.find((fr) => fr.name === 'comprador');
         user.roles.push(r?._id);

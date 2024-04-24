@@ -1,5 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, Put } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
@@ -35,7 +35,7 @@ export default class FavoriteController {
   private async getAllFavoritesByUserId(req: Request, res: Response) {
     Logger.info(req.params.id);
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const favorites = await Favorite.find({ user: req.params.id }).select('-user');;
+      const favorites = await Favorite.find({ user: req.params.id }).select('-user');
       return res
         .status(StatusCodes.OK)
         .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, favorites));
@@ -67,6 +67,26 @@ export default class FavoriteController {
     return res
       .status(StatusCodes.CREATED)
       .json(new ApiResponse('Favorito creado', StatusCodes.CREATED, favorite));
+  }
+
+  @Put('update/:id')
+  private async update(req: Request, res: Response) {
+    Logger.info(req.params, true);
+
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      const favorite = {
+        rating: req.body.rating,
+        comment: req.body.comment,
+      };
+      await Favorite.findByIdAndUpdate(req.params.id, { $set: favorite }, { new: true });
+      return res
+        .status(StatusCodes.OK)
+        .json(new ApiResponse('Favorito actualizado', StatusCodes.OK, favorite));
+    }
+
+    return res
+      .status(StatusCodes.BAD_REQUEST)
+      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
   @Delete('delete/:id')
