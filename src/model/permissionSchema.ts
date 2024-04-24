@@ -16,6 +16,10 @@ const permissionSchema = new mongoose.Schema({
   description: {
     type: String,
   },
+  createdDate: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 const Permission = mongoose.model<IPermission>('permission', permissionSchema);

@@ -1,13 +1,15 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, ClassMiddleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import Role from '../model/roleSchema';
 import Permission from '../model/permissionSchema';
+import authMiddleware from '../middleware/auth.middleware';
 
 @Controller('api/role')
+@ClassMiddleware(authMiddleware)
 export default class RoleController {
   @Get(':id')
   private async get(req: Request, res: Response) {
@@ -18,18 +20,49 @@ export default class RoleController {
       if (!role) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .json(new ApiResponse('Perfil no encontrado', StatusCodes.NOT_FOUND, null));
+          .json(new ApiResponse('Rol no encontrado', StatusCodes.NOT_FOUND, null));
       }
 
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Perfil encontrado', StatusCodes.OK, role));
+        .json(new ApiResponse('Rol encontrado', StatusCodes.OK, role));
     }
 
     return res
       .status(StatusCodes.BAD_REQUEST)
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
+
+  /**
+   * @swagger
+   * /api/role/{id}:
+   *  get:
+   *    summary: Obtener un rol de usuario mediante Id
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - role
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        required: true
+   *        description: Id del role de usuario que se desea obtener
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Rol encontrado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToRole'
+   *      400:
+   *        description: Formato de Id incorrecto o Error en la validación
+   *      404:
+   *        description: Rol no encontrado
+   *      500:
+   *        description: Error en el servidor
+   */
 
   @Get('')
   private async getAll(req: Request, res: Response) {
@@ -38,6 +71,26 @@ export default class RoleController {
       .status(StatusCodes.OK)
       .json(new ApiResponse('Perfiles encontrados', StatusCodes.OK, roles));
   }
+
+  /**
+   * @swagger
+   * /api/role:
+   *  get:
+   *    summary: Obtener todos los roles de usuario
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - role
+   *    responses:
+   *      200:
+   *        description: Roles de usuario encontrados
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToRoles'
+   *      500:
+   *        description: Error en el servidor
+   */
 
   @Post('')
   private async add(req: Request, res: Response) {
@@ -60,6 +113,33 @@ export default class RoleController {
       .json(new ApiResponse('Perfil creado', StatusCodes.CREATED, role));
   }
 
+  /**
+   * @swagger
+   * /api/role:
+   *  post:
+   *    summary: Crear un rol de usuario
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - role
+   *    requestBody:
+   *      description: Esquema de Rol de usuario
+   *      required: true
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/RoleToCreate'
+   *    responses:
+   *      201:
+   *        description: Rol de usuario creado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToRole'
+   *      500:
+   *        description: Error en el servidor
+   */
+
   @Delete('delete/:id')
   private async delete(req: Request, res: Response) {
     Logger.info(req.params, true);
@@ -74,4 +154,76 @@ export default class RoleController {
       .status(StatusCodes.BAD_REQUEST)
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
+
+  /**
+   * @swagger
+   * /api/role/delete/{id}:
+   *  delete:
+   *    tags:
+   *      - role
+   *    summary: Eliminar un rol de usuario
+   *    security:
+   *      - cookieAuth: []
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        required: true
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Rol de usuario eliminado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponse'
+   *      400:
+   *        description: Formato de Id incorrecto
+   *      500:
+   *        description: Error en el servidor
+   */
 }
+
+/**
+ * @swagger
+ * components:
+ *  schemas:
+ *    ApiResponseToRole:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              $ref: '#/components/schemas/Role'
+ *    ApiResponseToRoles:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              type: array
+ *              items:
+ *                $ref: '#/components/schemas/Role'
+ *    Role:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        name:
+ *          type: string
+ *        description:
+ *          type: string
+ *        permissions:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Permission'
+ *        creationDate:
+ *          type: string
+ *    RoleToCreate:
+ *      type: object
+ *      properties:
+ *        name:
+ *          type: string
+ *        description:
+ *          type: string
+ */

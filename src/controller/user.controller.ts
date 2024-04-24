@@ -54,6 +54,37 @@ export default class UserController {
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
+  /**
+   * @swagger
+   * /api/user/{id}:
+   *  get:
+   *    summary: Obtener un usuario mediante Id
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - user
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        required: true
+   *        description: Id del usuario que se desea obtener
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Usuario encontrado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToUser'
+   *      400:
+   *        description: Formato de Id incorrecto o Error en la validación
+   *      404:
+   *        description: Usuario no encontrado
+   *      500:
+   *        description: Error en el servidor
+   */
+
   @Get('')
   private async getAll(req: Request, res: Response) {
     Logger.info(req.body, true);
@@ -72,6 +103,26 @@ export default class UserController {
       .status(StatusCodes.OK)
       .json(new ApiResponse('Usuarios encontrados', StatusCodes.OK, users));
   }
+
+  /**
+   * @swagger
+   * /api/user:
+   *  get:
+   *    summary: Obtener todos los usuarios
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - user
+   *    responses:
+   *      200:
+   *        description: Usuarios encontrados
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToUsers'
+   *      500:
+   *        description: Error en el servidor
+   */
 
   @Post('')
   @Middleware(userValidationMiddleware)
@@ -99,6 +150,33 @@ export default class UserController {
       .json(new ApiResponse('Usuario creado', StatusCodes.CREATED, user));
   }
 
+  /**
+   * @swagger
+   * /api/user:
+   *  post:
+   *    summary: Crear un usuario
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - user
+   *    requestBody:
+   *      description: Esquema de Usuario
+   *      required: true
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/UserToCreate'
+   *    responses:
+   *      201:
+   *        description: Usuario creado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToUser'
+   *      500:
+   *        description: Error en el servidor
+   */
+
   @Put('update/:id')
   @Middleware(userValidationMiddleware)
   private async update(req: Request, res: Response) {
@@ -123,6 +201,41 @@ export default class UserController {
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
+  /**
+   * @swagger
+   * /api/user/update/{id}:
+   *  put:
+   *    tags:
+   *      - user
+   *    summary: Actualizar usuario
+   *    security:
+   *      - cookieAuth: []
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        description: Id del usuario a editar
+   *        required: true
+   *        schema:
+   *          type: string
+   *    requestBody:
+   *      description: Un usuario con datos actualizados
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/UserToCreate'
+   *    responses:
+   *      200:
+   *        description: Usuario actualizado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToUser'
+   *      400:
+   *        description: Formato de Id incorrecto
+   *      500:
+   *        description: Error en el servidor
+   */
+
   @Delete('delete/:id')
   private async delete(req: Request, res: Response) {
     Logger.info(req.params, true);
@@ -137,4 +250,92 @@ export default class UserController {
       .status(StatusCodes.BAD_REQUEST)
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
+
+  /**
+   * @swagger
+   * /api/user/delete/{id}:
+   *  delete:
+   *    tags:
+   *      - user
+   *    summary: Eliminar un usuario
+   *    security:
+   *      - cookieAuth: []
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        required: true
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Usuario eliminado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponse'
+   *      400:
+   *        description: Formato de Id incorrecto
+   *      500:
+   *        description: Error en el servidor
+   */
 }
+
+/**
+ * @swagger
+ * components:
+ *  schemas:
+ *    ApiResponseToUser:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              $ref: '#/components/schemas/User'
+ *    ApiResponseToUsers:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              type: array
+ *              items:
+ *                $ref: '#/components/schemas/User'
+ *    User:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        name:
+ *          type: string
+ *        surname:
+ *          type: string
+ *        username:
+ *          type: string
+ *        email:
+ *          type: string
+ *        password:
+ *          type: string
+ *        roles:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Role'
+ *        favorites:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Favorite'
+ *        creationDate:
+ *          type: string
+ *    UserToCreate:
+ *      type: object
+ *      properties:
+ *        name:
+ *          type: string
+ *        surname:
+ *          type: string
+ *        username:
+ *          type: string
+ *        email:
+ *          type: string
+ *        password:
+ *          type: string
+ */

@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@overnightjs/core';
+import { Controller, Get } from '@overnightjs/core';
 import Logger from 'jet-logger';
 import User from '../model/userSchema';
 import ApiResponse from '../class/ApiResponse';
@@ -13,7 +13,9 @@ export default class AuthController {
   private async login(req: Request, res: Response) {
     Logger.info(req.query, true);
 
-    const user = await User.findOne({ email: req.query.email as string }).exec();
+    const user = await User.findOne({ email: req.query.email as string })
+      .select('-roles -favorites')
+      .exec();
 
     if (!user) {
       return res
@@ -30,6 +32,17 @@ export default class AuthController {
     }
 
     const accessToken = await this.refreshAccessToken();
+    const userToReturn = await User.findOne({ email: req.query.email as string })
+      .populate({
+        path: 'roles',
+        populate: [
+          {
+            path: 'permissions',
+          },
+        ],
+      })
+      .select('-password -favorites')
+      .exec();
 
     return (
       res
@@ -42,10 +55,57 @@ export default class AuthController {
           maxAge: 60000 * 60 * 4, // 4 hours
         })
         .json(
-          new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, user)
+          new ApiResponse(
+            'Se ha iniciado sesión correctamente',
+            StatusCodes.OK,
+            userToReturn
+          )
         )
     );
   }
+
+  /**
+   * @swagger
+   * /api/auth/login:
+   *  get:
+   *    summary: Iniciar sesión en la app
+   *    tags:
+   *      - auth
+   *    parameters:
+   *      - name: email
+   *        in: query
+   *        description: El email del usuario
+   *        required: true
+   *        schema:
+   *          type: string
+   *      - name: password
+   *        in: query
+   *        description: La contraseña del usuario
+   *        required: true
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Se ha iniciado sesión correctamente
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToLogin'
+   *        headers:
+   *          Set-Cookie:
+   *            description: >
+   *              Se devuelve dos cookies: *access_token* necesaria incluir en los endpoints que necesitan autorización, 
+   *              y *user_id* necesaria para ciertos endpoints que necesitan este dato
+   *            schema:
+   *              type: string
+   *              example: access_token=APP_USR-4948848510539929-042122-df1b7386b2947a765eea63331e473740-321855410; user_id:6623f2a9923750c7aa84fdb4
+   *      400:
+   *        description: Contraseña incorrecta
+   *      404:
+   *        description: El usuario no existe
+   *      500:
+   *        description: Error en el servidor
+   */
 
   private async refreshAccessToken() {
     const config = {
@@ -93,37 +153,32 @@ export default class AuthController {
 
 /**
  * @swagger
- * /api/auth/login:
- *  get:
- *    summary: Iniciar sesión en la app
- *    tags:
- *      - Auth
- *    parameters:
- *      - name: email
- *        in: query
- *        description: El email del usuario
- *        required: true
- *        schema:
+ * components:
+ *  schemas:
+ *    ApiResponseToLogin:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              $ref: '#/components/schemas/UserToLogin'
+ *    UserToLogin:
+ *      type: object
+ *      properties:
+ *        _id:
  *          type: string
- *      - name: password
- *        in: query
- *        description: La contraseña del usuario
- *        required: true
- *        schema:
+ *        name:
  *          type: string
- *    responses:
- *      200:
- *        description: Se ha iniciado sesión correctamente
- *        headers:
- *          Set-Cookie:
- *            description: Se devuelve una cookie llamada *access_token*, la cual es necesaria incluir en los endpoints que necesitan autorización
- *            schema:
- *              type: string
- *              example: access_token=APP_USR-4948848510539929-042122-df1b7386b2947a765eea63331e473740-321855410
- *      400:
- *        description: Contraseña incorrecta
- *      404:
- *        description: El usuario no existe
- *      500:
- *        description: Error interno en el servidor
+ *        surname:
+ *          type: string
+ *        username:
+ *          type: string
+ *        email:
+ *          type: string
+ *        roles:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Role'
+ *        creationDate:
+ *          type: string
  */

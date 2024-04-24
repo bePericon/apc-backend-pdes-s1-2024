@@ -13,3 +13,19 @@ export default class ApiResponse {
     this.error = error;
   }
 }
+
+/**
+ * @swagger
+ * components:
+ *  schemas:
+ *    ApiResponse:
+ *      type: object
+ *      properties:
+ *        code:
+ *          type: integer
+ *          format: int32
+ *        status:
+ *          type: string
+ *        error:
+ *          type: string
+ */
