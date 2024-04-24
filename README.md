@@ -12,6 +12,7 @@ Using latest versions for all technologies (March 2024)
 - Jest 29.7
 - OvernightJS 1.7
 - MongoDB (Mongoose 8.2)
+- Swagger 2 (OpenAPI 3)
 
 ## Develop environment
 
@@ -23,5 +24,7 @@ Using latest versions for all technologies (March 2024)
 
 ### Let's go!
 
-- Backend: `localhost:8080/api`
+- Backend: 
+    - Server: `localhost:8080/api`
+    - API documentation: `http://localhost:8080/api-docs/`
 - Mongo client web: `localhost:8081` _(user: admin, password: pass)_
