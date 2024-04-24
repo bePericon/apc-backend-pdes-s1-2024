@@ -31,6 +31,37 @@ export default class FavoriteController {
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
+  /**
+   * @swagger
+   * /api/favorite/{id}:
+   *  get:
+   *    summary: Obtener un item favorito mediante Id
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - favorite
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        required: true
+   *        description: Id del item favorito que se desea obtener
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Favorito encontrado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToFavorite'
+   *      400:
+   *        description: Formato de Id incorrecto o Error en la validación
+   *      404:
+   *        description: Favorito no encontrado
+   *      500:
+   *        description: Error en el servidor
+   */
+
   @Get('user/:id')
   private async getAllFavoritesByUserId(req: Request, res: Response) {
     Logger.info(req.params.id);
@@ -45,6 +76,35 @@ export default class FavoriteController {
       .status(StatusCodes.BAD_REQUEST)
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
+
+  /**
+   * @swagger
+   * /api/favorite/user/{id}:
+   *  get:
+   *    summary: Obtener los items favoritos de un usuario mediante Id del usuario
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - favorite
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        required: true
+   *        description: Id del usuario del cual se desean obtener los favoritos
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Favoritos encontrados
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToFavorites'
+   *      400:
+   *        description: Formato de Id incorrecto o Error en la validación
+   *      500:
+   *        description: Error en el servidor
+   */
 
   @Post('')
   private async add(req: Request, res: Response) {
@@ -69,6 +129,33 @@ export default class FavoriteController {
       .json(new ApiResponse('Favorito creado', StatusCodes.CREATED, favorite));
   }
 
+  /**
+   * @swagger
+   * /api/favorite:
+   *  post:
+   *    summary: Crear un favorito
+   *    security:
+   *      - cookieAuth: []
+   *    tags:
+   *      - user
+   *    requestBody:
+   *      description: Esquema de Favorito
+   *      required: true
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/FavoriteToCreate'
+   *    responses:
+   *      201:
+   *        description: Favorito creado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToFavorite'
+   *      500:
+   *        description: Error en el servidor
+   */
+
   @Put('update/:id')
   private async update(req: Request, res: Response) {
     Logger.info(req.params, true);
@@ -89,6 +176,41 @@ export default class FavoriteController {
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
+  /**
+   * @swagger
+   * /api/favorite/update/{id}:
+   *  put:
+   *    tags:
+   *      - favorite
+   *    summary: Actualizar favorito
+   *    security:
+   *      - cookieAuth: []
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        description: Id del favorito a editar
+   *        required: true
+   *        schema:
+   *          type: string
+   *    requestBody:
+   *      description: Un favorito con datos actualizados
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/FavoriteToCreate'
+   *    responses:
+   *      200:
+   *        description: Favorito actualizado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToFavorite'
+   *      400:
+   *        description: Formato de Id incorrecto
+   *      500:
+   *        description: Error en el servidor
+   */
+
   @Delete('delete/:id')
   private async delete(req: Request, res: Response) {
     Logger.info(req.params, true);
@@ -103,4 +225,84 @@ export default class FavoriteController {
       .status(StatusCodes.BAD_REQUEST)
       .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
+
+  /**
+   * @swagger
+   * /api/favorite/delete/{id}:
+   *  delete:
+   *    tags:
+   *      - favorite
+   *    summary: Eliminar un favorito
+   *    security:
+   *      - cookieAuth: []
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        required: true
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Favorito eliminado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponse'
+   *      400:
+   *        description: Formato de Id incorrecto
+   *      500:
+   *        description: Error en el servidor
+   */
 }
+
+/**
+ * @swagger
+ * components:
+ *  schemas:
+ *    ApiResponseToFavorite:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              $ref: '#/components/schemas/Favorite'
+ *    ApiResponseToFavorites:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              type: array
+ *              items:
+ *                $ref: '#/components/schemas/Favorite'
+ *    Favorite:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        user:
+ *          type: string
+ *        itemId:
+ *          type: string
+ *        comment:
+ *          type: string
+ *        rating:
+ *          type: integer
+ *          minimum: 0
+ *          maximum: 5
+ *        creationDate:
+ *          type: string
+ *    FavoriteToCreate:
+ *      type: object
+ *      properties:
+ *        user:
+ *          type: string
+ *        itemId:
+ *          type: string
+ *        comment:
+ *          type: string
+ *        rating:
+ *          type: integer
+ *          minimum: 0
+ *          maximum: 5
+ */
