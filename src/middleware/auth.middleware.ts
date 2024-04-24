@@ -25,3 +25,13 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
 };
 
 export default authMiddleware;
+
+/**
+ * @swagger
+ * components:
+ *  securitySchemes:
+ *    cookieAuth:
+ *      type: apiKey
+ *      in: cookie
+ *      name: access_token
+ */
