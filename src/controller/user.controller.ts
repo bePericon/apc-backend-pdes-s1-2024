@@ -61,6 +61,7 @@ export default class UserController {
    *    summary: Obtener un usuario mediante Id
    *    security:
    *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - user
    *    parameters:

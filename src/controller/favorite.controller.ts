@@ -137,7 +137,7 @@ export default class FavoriteController {
    *    security:
    *      - cookieAuth: []
    *    tags:
-   *      - user
+   *      - favorite
    *    requestBody:
    *      description: Esquema de Favorito
    *      required: true

@@ -9,26 +9,25 @@ const errorMiddleware = (
   res: Response,
   _next: NextFunction
 ) => {
-  const statusCode =
+  let status = 'Error en el servidor';
+  if (typeof err === 'object' && err.message) status = `Error: ${err.message}`;
+  if (typeof err === 'string') status = err;
+
+  let statusCode =
     err?.response?.status || err?.status || StatusCodes.INTERNAL_SERVER_ERROR;
 
+  // Set error when catch wrong validation
+  let errors: any = {};
   if (err.name === 'ValidationError') {
-    let errors: any = {};
-
     Object.keys(err.errors).forEach((key: any) => {
       errors[key] = err.errors[key].message;
     });
 
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .send(
-        new ApiResponse('Error en la validación', StatusCodes.BAD_REQUEST, null, errors)
-      );
+    status = 'Error en la validación';
+    statusCode = StatusCodes.BAD_REQUEST;
   }
 
-  return res
-    .status(statusCode)
-    .send(new ApiResponse('Error en el servidor', statusCode, err));
+  return res.status(statusCode).send(new ApiResponse(status, statusCode, err, errors));
 };
 
 export default errorMiddleware;
