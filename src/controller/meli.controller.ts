@@ -31,6 +31,7 @@ export default class MeliController {
    *     summary: Buscar items en Meli
    *     security:
    *       - cookieAuth: []
+   *       - bearerAuth: []
    *     tags:
    *       - meli
    *     parameters:
@@ -112,7 +113,8 @@ export default class MeliController {
    *   get:
    *     summary: Buscar item por Id en Meli
    *     security:
-   *       - cookieAuth: []
+   *      - cookieAuth: []
+   *      - bearerAuth: []
    *     tags:
    *       - meli
    *     parameters:

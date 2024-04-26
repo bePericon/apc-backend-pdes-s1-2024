@@ -112,6 +112,7 @@ export default class UserController {
    *    summary: Obtener todos los usuarios
    *    security:
    *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - user
    *    responses:
@@ -158,6 +159,7 @@ export default class UserController {
    *    summary: Crear un usuario
    *    security:
    *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - user
    *    requestBody:
@@ -211,6 +213,7 @@ export default class UserController {
    *    summary: Actualizar usuario
    *    security:
    *      - cookieAuth: []
+   *      - bearerAuth: []
    *    parameters:
    *      - in: path
    *        name: id
@@ -261,6 +264,7 @@ export default class UserController {
    *    summary: Eliminar un usuario
    *    security:
    *      - cookieAuth: []
+   *      - bearerAuth: []
    *    parameters:
    *      - in: path
    *        name: id

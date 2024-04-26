@@ -74,6 +74,7 @@ export default class AuthController {
    * /api/auth/login:
    *  post:
    *    summary: Iniciar sesión en la app
+   *    description: Se devuelve el usuario y un token de autenticación (duración 4 h)
    *    tags:
    *      - auth
    *    requestBody:
@@ -93,11 +94,10 @@ export default class AuthController {
    *        headers:
    *          Set-Cookie:
    *            description: >
-   *              Se devuelve dos cookies: *access_token* necesaria incluir en los endpoints que necesitan autorización,
-   *              y *user_id* necesaria para ciertos endpoints que necesitan este dato
+   *              Se devuelve cookie: *access_token* necesaria en los endpoints que necesitan autorización (duración 4 h)
    *            schema:
    *              type: string
-   *              example: access_token=APP_USR-4948848510539929-042122-df1b7386b2947a765eea63331e473740-321855410; user_id:6623f2a9923750c7aa84fdb4
+   *              example: access_token=APP_USR-4948848510539929-042122-df1b7386b2947a765eea63331e473740-321855410
    *      400:
    *        description: Contraseña incorrecta
    *      404:
@@ -160,7 +160,12 @@ export default class AuthController {
  *        - type: object
  *          properties:
  *            data:
- *              $ref: '#/components/schemas/UserToLogin'
+ *              type: object
+ *              properties:
+ *                token:
+ *                  type: string
+ *                user:
+ *                  $ref: '#/components/schemas/UserToLogin'
  *    UserToLogin:
  *      type: object
  *      properties:
