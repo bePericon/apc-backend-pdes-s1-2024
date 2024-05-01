@@ -13,7 +13,7 @@ import Logger from 'jet-logger';
 import User from '../model/userSchema';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
-import userValidationMiddleware from '../middleware/userValidation.middleware';
+import { userValidationMiddleware } from '../middleware/userValidation.middleware';
 import { genSaltSync, hashSync } from 'bcrypt';
 import authMiddleware from '../middleware/auth.middleware';
 import Role from '../model/roleSchema';

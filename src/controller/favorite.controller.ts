@@ -1,13 +1,15 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete, Put } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, Put, ClassMiddleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import Favorite from '../model/favoriteSchema';
 import User from '../model/userSchema';
+import authMiddleware from '../middleware/auth.middleware';
 
 @Controller('api/favorite')
+@ClassMiddleware(authMiddleware)
 export default class FavoriteController {
   @Get(':id')
   private async get(req: Request, res: Response) {
@@ -219,6 +221,15 @@ export default class FavoriteController {
   private async delete(req: Request, res: Response) {
     Logger.info(req.params, true);
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      await User.updateOne(
+        { _id: req.userId },
+        {
+          $pull: {
+            favorites: req.params.id,
+          },
+        }
+      );
+
       await Favorite.findByIdAndDelete(req.params.id);
       return res
         .status(StatusCodes.OK)

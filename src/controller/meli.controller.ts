@@ -19,9 +19,30 @@ export default class MeliController {
 
     const response = await this.searchQuery(req.query, access_token);
 
+    const results = await Promise.all(
+      response.results.map(async (res: any) => {
+        const { thumbnail, thumbnail_id } = res;
+        const found = await this.searchItemById(res.id, access_token);
+        const { id, title, pictures, price } = found;
+        let result;
+        const favorite = await Favorite.findOne({
+          user: req.userId,
+          itemId: id,
+        }).exec();
+
+        result = { id, title, thumbnail, thumbnail_id, pictures, price };
+        
+        if (favorite) result = { ...result, isFavorite: favorite };
+
+        return result;
+      })
+    );
+
     return res
       .status(StatusCodes.OK)
-      .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, response));
+      .json(
+        new ApiResponse('Búsqueda finalizada', StatusCodes.OK, { ...response, results })
+      );
   }
 
   /**
@@ -96,11 +117,16 @@ export default class MeliController {
       itemId: req.params.id,
     }).exec();
 
-    if (favorite) {
-      result = { id, title, pictures, price, isFavorite: favorite };
-    } else {
-      result = { id, title, pictures, price };
-    }
+    result = {
+      id,
+      title,
+      thumbnail: pictures[0].url,
+      thumbnail_id: pictures[0].id,
+      pictures,
+      price,
+    };
+
+    if (favorite) result = { ...result, isFavorite: favorite };
 
     return res
       .status(StatusCodes.OK)

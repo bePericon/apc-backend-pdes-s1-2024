@@ -1,13 +1,15 @@
-import { Controller, Get, Post } from '@overnightjs/core';
+import { Controller, Get, Middleware, Post } from '@overnightjs/core';
 import Logger from 'jet-logger';
 import User from '../model/userSchema';
 import ApiResponse from '../class/ApiResponse';
 import { StatusCodes } from 'http-status-codes';
-import { compareSync } from 'bcrypt';
+import { compareSync, genSaltSync, hashSync } from 'bcrypt';
 import { Request, Response } from 'express';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
+import { userSignUpValidationMiddleware } from '../middleware/userValidation.middleware';
+import Role from '../model/roleSchema';
 
 @Controller('api/auth')
 export default class AuthController {
@@ -148,6 +150,53 @@ export default class AuthController {
         )
       );
   }
+
+  @Post('signup')
+  @Middleware(userSignUpValidationMiddleware)
+  private async add(req: Request, res: Response) {
+    Logger.info(req.body, true);
+
+    const salt = genSaltSync(10);
+    const user = new User({
+      name: req.body.name,
+      email: req.body.email,
+      password: hashSync(req.body.password, salt),
+    });
+
+    const role = await Role.findOne({ name: 'comprador' });
+    user.roles.push(role?._id);
+
+    await user.save();
+
+    return res
+      .status(StatusCodes.CREATED)
+      .json(new ApiResponse('Usuario registrado', StatusCodes.CREATED, user));
+  }
+
+  /**
+   * @swagger
+   * /api/auth/signup:
+   *  post:
+   *    summary: Registrar usuario
+   *    tags:
+   *      - auth
+   *    requestBody:
+   *      description: Esquema de Registro
+   *      required: true
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/SignUp'
+   *    responses:
+   *      201:
+   *        description: Usuario registrado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToUser'
+   *      500:
+   *        description: Error en el servidor
+   */
 }
 
 /**
@@ -188,6 +237,15 @@ export default class AuthController {
  *    Login:
  *      type: object
  *      properties:
+ *        email:
+ *          type: string
+ *        password:
+ *          type: string
+ *    SignUp:
+ *      type: object
+ *      properties:
+ *        name:
+ *          type: string
  *        email:
  *          type: string
  *        password:
