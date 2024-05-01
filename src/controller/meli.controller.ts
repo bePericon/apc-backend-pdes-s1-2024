@@ -31,6 +31,7 @@ export default class MeliController {
    *     summary: Buscar items en Meli
    *     security:
    *       - cookieAuth: []
+   *       - bearerAuth: []
    *     tags:
    *       - meli
    *     parameters:
@@ -85,14 +86,13 @@ export default class MeliController {
     Logger.info(req.params.id);
 
     const access_token = req.cookies['access_token'];
-    const user_id = req.cookies['user_id'];
 
     const response = await this.searchItemById(req.params.id, access_token);
     const { id, title, pictures, price, ..._ } = response;
 
     let result;
     const favorite = await Favorite.findOne({
-      user: user_id,
+      user: req.userId,
       itemId: req.params.id,
     }).exec();
 
@@ -113,7 +113,8 @@ export default class MeliController {
    *   get:
    *     summary: Buscar item por Id en Meli
    *     security:
-   *       - cookieAuth: []
+   *      - cookieAuth: []
+   *      - bearerAuth: []
    *     tags:
    *       - meli
    *     parameters:

@@ -25,6 +25,7 @@ export default class PermissionController {
    *    summary: Obtener todos los permisos
    *    security:
    *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - permission
    *    responses:
@@ -61,6 +62,7 @@ export default class PermissionController {
    *    summary: Crear un permiso
    *    security:
    *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - permission
    *    requestBody:
@@ -105,6 +107,7 @@ export default class PermissionController {
    *    summary: Eliminar un permiso
    *    security:
    *      - cookieAuth: []
+   *      - bearerAuth: []
    *    parameters:
    *      - in: path
    *        name: id
