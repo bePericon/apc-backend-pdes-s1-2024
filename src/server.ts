@@ -92,7 +92,7 @@ export class ServerApp extends Server {
   public start(port: number) {
     this.app.listen(port, () => {
       logger.imp(this.STARTED_MSG + port);
-      if (config.load_data) loadData();
+      if (process.env.NODE_ENV !== "test") loadData();
     });
   }
 }
