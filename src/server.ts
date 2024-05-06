@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Application } from 'express';
 import { Server } from '@overnightjs/core';
 import morgan, { TokenIndexer } from 'morgan';
 import cors from 'cors';
@@ -85,11 +85,14 @@ export class ServerApp extends Server {
     console.log('Data base is connect: ' + db.connection.name);
   }
 
+  public getApp(): Application {
+    return this.app;
+  }
+
   public start(port: number) {
     this.app.listen(port, () => {
       logger.imp(this.STARTED_MSG + port);
-
-      loadData();
+      if (process.env.NODE_ENV !== "test") loadData();
     });
   }
 }
