@@ -3,7 +3,8 @@ name: Deployment Pipeline
 on:
   push:
     branches:
-      - feature/APC-10-ci-cd
+      - master
+      - develop
 
 jobs:
   deploy:
