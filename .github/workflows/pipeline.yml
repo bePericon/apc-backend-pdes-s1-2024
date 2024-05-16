@@ -78,13 +78,19 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Docker build
         run: |
-          docker compose build
+          docker compose up -d --force-recreate
       - name: Docker tag and push
         run: |
           docker tag apc-backend-app:latest bepericon/apc-backend-app:latest
           docker push bepericon/apc-backend-app:latest
         
 
-  # deploy:
-  #   runs-on: ubuntu-22.04
-  #   steps:
+  deploy:
+    needs: [docker]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Deploy to production
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
