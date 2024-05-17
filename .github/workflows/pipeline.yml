@@ -3,9 +3,8 @@ name: Deployment Pipeline
 on:
   push:
     branches:
-      - feature/APC-12-bis-add-continuous-deployment
-      # - master
-      # - develop
+      - master
+      - develop
 
 jobs:
   avoid_reduncy:
