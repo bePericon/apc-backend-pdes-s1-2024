@@ -55,13 +55,19 @@ export default class AuthController {
       .select('-password -favorites')
       .exec();
 
+    const isDev = process.env.NODE_ENV === 'development'
+    console.log("🚀 ~ AuthController ~ login ~ isDev:", isDev)
+    const domain = isDev ? '.localhost' : '.apc-frontend-pdes-s1-2024.vercel.app'
+
     return (
       res
         .status(StatusCodes.OK)
         //.cookie('access_token', accessToken, { maxAge: 10000 }); // 10 seconds
         .cookie('access_token', accessToken, {
           maxAge: 60000 * 60 * 4, // 4 hours
-          sameSite: 'none'
+          httpOnly: false,
+          sameSite: 'none',
+          domain
         })
         .json(
           new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, {
