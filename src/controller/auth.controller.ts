@@ -35,13 +35,13 @@ export default class AuthController {
         .json(new ApiResponse('Contraseña incorrecta', StatusCodes.BAD_REQUEST, null));
     }
 
-    // Create token authorization and access_token for Meli
+    // Create access_token for Meli and token authorization
+    const accessToken = await this.refreshAccessToken();
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { id: user._id, email: user.email, access_token: accessToken },
       config.secret_token as string,
       { expiresIn: 60000 * 60 * 4 } // 4 hours
     );
-    const accessToken = await this.refreshAccessToken();
 
     const userToReturn = await User.findOne({ email: req.body.email as string })
       .populate({
@@ -59,9 +59,9 @@ export default class AuthController {
       res
         .status(StatusCodes.OK)
         //.cookie('access_token', accessToken, { maxAge: 10000 }); // 10 seconds
-        .cookie('access_token', accessToken, {
-          maxAge: 60000 * 60 * 4, // 4 hours
-        })
+        // .cookie('access_token', accessToken, {
+        //   maxAge: 60000 * 60 * 4, // 4 hours
+        // })
         .json(
           new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, {
             user: userToReturn,

@@ -7,11 +7,12 @@ import config from '../config/config';
 declare module 'express-serve-static-core' {
   interface Request {
     userId?: string;
+    access_token?: string;
   }
 }
 
 const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-  const cookie = req.cookies['access_token'];
+  // const cookie = req.cookies['access_token'];
 
   const authorization = req.get('authorization');
 
@@ -21,12 +22,14 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
 
   let token = '';
   let decodedToken = null;
+  let cookie = null;
 
   if (existCorrectAuthorization) {
     token = authorization.substring(7);
     try {
       decodedToken = jwt.verify(token, config.secret_token as string) as JwtPayload;
       decodedTokenCorrect = decodedToken.id!;
+      cookie = decodedToken.access_token!;
     } catch (err) {
       decodedTokenCorrect = false;
     }
@@ -56,6 +59,7 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
       );
   }
   req.userId = decodedToken.id;
+  req.access_token = cookie;
 
   next();
 };

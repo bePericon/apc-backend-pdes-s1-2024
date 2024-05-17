@@ -4,7 +4,7 @@
   "description": "",
   "main": "main.ts",
   "scripts": {
-    "dev": "nodemon ./src/main.ts",
+    "dev": "cross-env NODE_ENV=development nodemon ./src/main.ts",
     "start": "nodemon -L ./src/main.ts",
     "build": "tsc",
     "test": "cross-env NODE_ENV=test jest --silent --forceExit",
