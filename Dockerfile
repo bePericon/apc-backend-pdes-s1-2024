@@ -28,4 +28,4 @@ COPY . $HOME
 EXPOSE $PORT
 
 #Start app
-CMD [ "npm", "start" ]
+CMD [ "npm", "run", "dev" ]
