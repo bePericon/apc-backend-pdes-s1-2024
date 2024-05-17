@@ -7,18 +7,109 @@ on:
       - develop
 
 jobs:
-  deploy:
+  avoid_reduncy:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Cancel Previous Redundant Builds
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+  lint:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 18.7
+          node-version: 18.17
       - name: Install dependencies
-        run: npm ci
+        run: npm ci -f
       - name: Lint
         run: npm run lint
+
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18.17
+      - name: Install dependencies
+        run: npm ci -f
       - name: Build
         run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+  test:
+    needs: [lint, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18.17
+      - name: Install dependencies
+        run: npm ci -f
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
       - name: Test
         run: npm run test
+
+  docker-mongo:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Docker build
+        run: |
+          cd docker/mongo
+          docker compose up -d --force-recreate
+      - name: Docker tag and push
+        run: |
+          docker tag apc-mongo-app:latest bepericon/apc-mongo-app:latest
+          docker push bepericon/apc-mongo-app:latest
+
+  docker-nodejs:
+    needs: [test]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Docker build
+        run: |
+          cd docker/nodejs
+          docker compose up -d --force-recreate
+      - name: Docker tag and push
+        run: |
+          docker tag apc-backend-app:latest bepericon/apc-backend-app:latest
+          docker push bepericon/apc-backend-app:latest
+        
+
+  deploy-nodejs:
+    needs: [docker-nodejs, docker-mongo]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Deploy to production
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
