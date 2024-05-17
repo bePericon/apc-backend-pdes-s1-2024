@@ -81,16 +81,6 @@ jobs:
         run: |
           docker tag apc-mongo-app:latest bepericon/apc-mongo-app:latest
           docker push bepericon/apc-mongo-app:latest
-  
-  deploy-mongo:
-    needs: [docker-mongo]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Deploy to production
-        uses: johnbeynon/render-deploy-action@v0.0.8
-        with:
-          service-id: ${{ secrets.RENDER_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}
 
   docker-nodejs:
     needs: [test]
@@ -116,7 +106,7 @@ jobs:
         
 
   deploy-nodejs:
-    needs: [docker-nodejs, deploy-mongo]
+    needs: [docker-nodejs, docker-mongo]
     runs-on: ubuntu-22.04
     steps:
       - name: Deploy to production
