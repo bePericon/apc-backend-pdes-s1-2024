@@ -1,0 +1,15 @@
+version: '3.1'
+
+services:
+  mongo:
+    image: mongo
+    container_name: mongo
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - '27017:27017'
+    volumes:
+      - ./db_data/:/data/db
+      - /etc/timezone:/etc/timezone:ro

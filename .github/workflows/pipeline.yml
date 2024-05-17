@@ -3,7 +3,7 @@ name: Deployment Pipeline
 on:
   push:
     branches:
-      - feature/APC-12-add-continuous-deployment
+      - feature/APC-12-bis-add-continuous-deployment
       # - master
       # - develop
 
@@ -61,14 +61,11 @@ jobs:
       - name: Test
         run: npm run test
 
-  docker:
-    needs: [test]
+  docker-mongo:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to Docker Hub
@@ -78,6 +75,39 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Docker build
         run: |
+          cd docker/mongo
+          docker compose up -d --force-recreate
+      - name: Docker tag and push
+        run: |
+          docker tag apc-mongo-app:latest bepericon/apc-mongo-app:latest
+          docker push bepericon/apc-mongo-app:latest
+  
+  deploy-mongo:
+    needs: [docker-mongo]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Deploy to production
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+
+  docker-nodejs:
+    needs: [test]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Docker build
+        run: |
+          cd docker/nodejs
           docker compose up -d --force-recreate
       - name: Docker tag and push
         run: |
@@ -85,8 +115,8 @@ jobs:
           docker push bepericon/apc-backend-app:latest
         
 
-  deploy:
-    needs: [docker]
+  deploy-nodejs:
+    needs: [docker-nodejs, deploy-mongo]
     runs-on: ubuntu-22.04
     steps:
       - name: Deploy to production
