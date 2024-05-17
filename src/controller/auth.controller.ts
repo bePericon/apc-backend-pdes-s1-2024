@@ -61,6 +61,7 @@ export default class AuthController {
         //.cookie('access_token', accessToken, { maxAge: 10000 }); // 10 seconds
         .cookie('access_token', accessToken, {
           maxAge: 60000 * 60 * 4, // 4 hours
+          sameSite: 'none'
         })
         .json(
           new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, {
