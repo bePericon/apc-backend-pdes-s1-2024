@@ -12,7 +12,6 @@ declare module 'express-serve-static-core' {
 }
 
 const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-  // const cookie = req.cookies['access_token'];
 
   const authorization = req.get('authorization');
 

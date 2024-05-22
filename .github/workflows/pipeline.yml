@@ -3,9 +3,8 @@ name: Deployment Pipeline
 on:
   push:
     branches:
-      - hotfix/cookie-vercel
-      # - master
-      # - develop
+      - master
+      - develop
 
 jobs:
   avoid_reduncy:
