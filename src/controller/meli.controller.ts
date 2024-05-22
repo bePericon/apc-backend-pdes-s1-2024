@@ -15,7 +15,7 @@ export default class MeliController {
   private async search(req: Request, res: Response) {
     Logger.info(req.query, true);
 
-    const access_token = req.cookies['access_token'];
+    const access_token = req.access_token!;
 
     const response = await this.searchQuery(req.query, access_token);
 
@@ -106,7 +106,7 @@ export default class MeliController {
   private async itemById(req: Request, res: Response) {
     Logger.info(req.params.id);
 
-    const access_token = req.cookies['access_token'];
+    const access_token = req.access_token!;
 
     const response = await this.searchItemById(req.params.id, access_token);
     const { id, title, pictures, price, ..._ } = response;
