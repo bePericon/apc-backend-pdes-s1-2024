@@ -55,6 +55,11 @@ export default class AuthController {
       .select('-password -favorites')
       .exec();
 
+    const isDev = process.env.NODE_ENV === 'development';
+    console.log('🚀 ~ AuthController ~ login ~ isDev:', isDev);
+    const domain = isDev ? '.localhost' : '.apc-frontend-pdes-s1-2024.vercel.app';
+    const secure = isDev ? false : true;
+
     return (
       res
         .status(StatusCodes.OK)
