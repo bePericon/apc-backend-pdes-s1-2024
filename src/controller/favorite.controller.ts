@@ -39,7 +39,6 @@ export default class FavoriteController {
    *  get:
    *    summary: Obtener un item favorito mediante Id
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    tags:
    *      - favorite
@@ -86,7 +85,6 @@ export default class FavoriteController {
    *  get:
    *    summary: Obtener los items favoritos de un usuario mediante Id del usuario
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    tags:
    *      - favorite
@@ -139,7 +137,6 @@ export default class FavoriteController {
    *  post:
    *    summary: Crear un favorito
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    tags:
    *      - favorite
@@ -189,7 +186,6 @@ export default class FavoriteController {
    *      - favorite
    *    summary: Actualizar favorito
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    parameters:
    *      - in: path
@@ -249,7 +245,6 @@ export default class FavoriteController {
    *      - favorite
    *    summary: Eliminar un favorito
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    parameters:
    *      - in: path
