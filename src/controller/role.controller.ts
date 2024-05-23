@@ -39,7 +39,6 @@ export default class RoleController {
    *  get:
    *    summary: Obtener un rol de usuario mediante Id
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    tags:
    *      - role
@@ -79,7 +78,6 @@ export default class RoleController {
    *  get:
    *    summary: Obtener todos los roles de usuario
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    tags:
    *      - role
@@ -121,7 +119,6 @@ export default class RoleController {
    *  post:
    *    summary: Crear un rol de usuario
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    tags:
    *      - role
@@ -166,7 +163,6 @@ export default class RoleController {
    *      - role
    *    summary: Eliminar un rol de usuario
    *    security:
-   *      - cookieAuth: []
    *      - bearerAuth: []
    *    parameters:
    *      - in: path

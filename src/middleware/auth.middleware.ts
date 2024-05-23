@@ -69,10 +69,6 @@ export default authMiddleware;
  * @swagger
  * components:
  *  securitySchemes:
- *    cookieAuth:
- *      type: apiKey
- *      in: cookie
- *      name: access_token
  *    bearerAuth:
  *      type: http
  *      scheme: bearer

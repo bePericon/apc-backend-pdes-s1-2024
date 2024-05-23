@@ -94,13 +94,6 @@ export default class AuthController {
    *          application/json:
    *            schema:
    *              $ref: '#/components/schemas/ApiResponseToLogin'
-   *        headers:
-   *          Set-Cookie:
-   *            description: >
-   *              Se devuelve cookie: *access_token* necesaria en los endpoints que necesitan autorización (duración 4 h)
-   *            schema:
-   *              type: string
-   *              example: access_token=APP_USR-4948848510539929-042122-df1b7386b2947a765eea63331e473740-321855410
    *      400:
    *        description: Contraseña incorrecta
    *      404:
