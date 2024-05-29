@@ -3,10 +3,9 @@ import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import { StatusCodes } from 'http-status-codes';
 import { Request, Response } from 'express';
-import axios from 'axios';
-import { objectToUrlParams } from '../utils/misc';
 import authMiddleware from '../middleware/auth.middleware';
 import Favorite from '../model/favoriteSchema';
+import meliService from '../service/meli.service';
 
 @Controller('api/meli')
 @ClassMiddleware(authMiddleware)
@@ -17,12 +16,12 @@ export default class MeliController {
 
     const access_token = req.access_token!;
 
-    const response = await this.searchQuery(req.query, access_token);
+    const response = await meliService.searchQuery(req.query, access_token);
 
     const results = await Promise.all(
       response.results.map(async (res: any) => {
         const { thumbnail, thumbnail_id } = res;
-        const found = await this.searchItemById(res.id, access_token);
+        const found = await meliService.searchItemById(res.id, access_token);
         const { id, title, pictures, price } = found;
         let result;
         const favorite = await Favorite.findOne({
@@ -84,30 +83,13 @@ export default class MeliController {
    *         description: Error en el servidor
    */
 
-  private async searchQuery(query: any, access_token: string) {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    };
-
-    const { data } = await axios.get(
-      `https://api.mercadolibre.com/sites/MLA/search?${objectToUrlParams(
-        query
-      )}&status=active`,
-      config
-    );
-
-    return data;
-  }
-
   @Get('item/:id')
   private async itemById(req: Request, res: Response) {
     Logger.info(req.params.id);
 
     const access_token = req.access_token!;
 
-    const response = await this.searchItemById(req.params.id, access_token);
+    const response = await meliService.searchItemById(req.params.id, access_token);
     const { id, title, pictures, price, ..._ } = response;
 
     let result;
@@ -157,18 +139,6 @@ export default class MeliController {
    *       500:
    *         description: Error en el servidor
    */
-
-  private async searchItemById(id: string, access_token: string) {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    };
-
-    const { data } = await axios.get(`https://api.mercadolibre.com/items/${id}`, config);
-
-    return data;
-  }
 }
 
 /**
@@ -199,6 +169,8 @@ export default class MeliController {
  *        title:
  *          type: string
  *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
  *          type: string
  *    ItemById:
  *      type: object
