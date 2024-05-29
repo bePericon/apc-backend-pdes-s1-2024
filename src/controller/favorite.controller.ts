@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import Favorite from '../model/favoriteSchema';
 import User from '../model/userSchema';
 import authMiddleware from '../middleware/auth.middleware';
+import meliService from '../service/meli.service';
 
 @Controller('api/favorite')
 @ClassMiddleware(authMiddleware)
@@ -16,16 +17,30 @@ export default class FavoriteController {
     Logger.info(req.params.id);
 
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const favorite = await Favorite.findById(req.params.id);
+      const access_token = req.access_token!;
+
+      const favorite = await Favorite.findById(req.params.id).select('-user').lean();
+
       if (!favorite) {
         return res
           .status(StatusCodes.NOT_FOUND)
           .json(new ApiResponse('Favorito no encontrado', StatusCodes.NOT_FOUND, null));
       }
 
+      const response = await meliService.searchItemById(req.params.id, access_token);
+      const { title, pictures, price, ..._ } = response;
+      const result = {
+        ...favorite,
+        title,
+        thumbnail: pictures[0].url,
+        thumbnail_id: pictures[0].id,
+        pictures,
+        price,
+      };
+
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Favorito encontrado', StatusCodes.OK, favorite));
+        .json(new ApiResponse('Favorito encontrado', StatusCodes.OK, result));
     }
 
     return res
@@ -68,10 +83,39 @@ export default class FavoriteController {
   private async getAllFavoritesByUserId(req: Request, res: Response) {
     Logger.info(req.params.id);
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const favorites = await Favorite.find({ user: req.params.id }).select('-user');
+      const access_token = req.access_token!;
+
+      const favorites = await Favorite.find({ user: req.params.id })
+        .select('-user')
+        .lean();
+
+      const response = await meliService.searchItemsByIds(
+        favorites.map((fav) => fav.itemId),
+        access_token
+      );
+
+      const hydratedFavorites = response.map(({ body }: any) => {
+        const { title, pictures, price, ..._ } = body;
+
+        const fav = favorites.find((f) => f.itemId === body.id);
+
+        const result = {
+          ...fav,
+          title,
+          thumbnail: pictures[0].url,
+          thumbnail_id: pictures[0].id,
+          pictures,
+          price,
+        };
+
+        return result;
+      });
+
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, favorites));
+        .json(
+          new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
+        );
     }
 
     return res
@@ -302,6 +346,18 @@ export default class FavoriteController {
  *          minimum: 0
  *          maximum: 5
  *        creationDate:
+ *          type: string
+ *        title:
+ *          type: string
+ *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
+ *          type: string
+ *        pictures:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Picture'
+ *        price:
  *          type: string
  *    FavoriteToCreate:
  *      type: object
