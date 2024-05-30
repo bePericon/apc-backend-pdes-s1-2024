@@ -4,7 +4,7 @@ import ApiResponse from '../class/ApiResponse';
 import { StatusCodes } from 'http-status-codes';
 import { Request, Response } from 'express';
 import authMiddleware from '../middleware/auth.middleware';
-import Favorite from '../model/favoriteSchema';
+import Favorite, { IFavorite } from '../model/favoriteSchema';
 import meliService from '../service/meli.service';
 
 @Controller('api/meli')
@@ -27,11 +27,21 @@ export default class MeliController {
         const favorite = await Favorite.findOne({
           user: req.userId,
           itemId: id,
-        }).exec();
+        })
+          .select('-user')
+          .lean();
 
-        result = { id, title, thumbnail, thumbnail_id, pictures, price };
-        
-        if (favorite) result = { ...result, isFavorite: favorite };
+        result = { itemId: id, title, thumbnail, thumbnail_id, pictures, price };
+
+        if (favorite) {
+          const { _id, ...restFavorite } = favorite as IFavorite;
+          result = {
+            ...result,
+            ...restFavorite,
+            favoriteId: _id,
+            isFavorite: true,
+          };
+        }
 
         return result;
       })
@@ -96,10 +106,14 @@ export default class MeliController {
     const favorite = await Favorite.findOne({
       user: req.userId,
       itemId: req.params.id,
-    }).exec();
+    })
+      .select('-user')
+      .lean();
+
+    const { _id, ...restFavorite } = favorite as IFavorite;
 
     result = {
-      id,
+      itemId: id,
       title,
       thumbnail: pictures[0].url,
       thumbnail_id: pictures[0].id,
@@ -107,7 +121,14 @@ export default class MeliController {
       price,
     };
 
-    if (favorite) result = { ...result, isFavorite: favorite };
+    if (favorite)
+      result = {
+        ...result,
+        ...restFavorite,
+        itemId: id,
+        favoriteId: _id,
+        isFavorite: true,
+      };
 
     return res
       .status(StatusCodes.OK)
@@ -151,7 +172,7 @@ export default class MeliController {
  *        - type: object
  *          properties:
  *            data:
- *              $ref: '#/components/schemas/ItemById'
+ *              $ref: '#/components/schemas/Item'
  *    ApiResponseToItems:
  *      allOf:
  *        - $ref: '#/components/schemas/ApiResponse'
@@ -160,24 +181,12 @@ export default class MeliController {
  *            data:
  *              type: array
  *              items:
- *                $ref: '#/components/schemas/ItemsSearch'
- *    ItemsSearch:
+ *                $ref: '#/components/schemas/Item'
+ *    Item:
  *      type: object
+ *      required: [itemId, pictures, price, title, thumbnail, thumbnail_id]
  *      properties:
- *        id:
- *          type: string
- *        title:
- *          type: string
- *        thumbnail:
- *          type: string
- *        thumbnail_id:
- *          type: string
- *    ItemById:
- *      type: object
- *      properties:
- *        id:
- *          type: string
- *        title:
+ *        itemId:
  *          type: string
  *        pictures:
  *          type: array
@@ -185,6 +194,26 @@ export default class MeliController {
  *            $ref: '#/components/schemas/Picture'
  *        price:
  *          type: string
+ *        title:
+ *          type: string
+ *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
+ *          type: string
+ *        favoriteId:
+ *          type: string
+ *        user:
+ *          type: string
+ *        comment:
+ *          type: string
+ *        rating:
+ *          type: integer
+ *          minimum: 0
+ *          maximum: 10
+ *        creationDate:
+ *          type: string
+ *        isFavorite:
+ *          type: boolean
  *    Picture:
  *      type: object
  *      properties:
