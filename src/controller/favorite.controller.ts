@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
-import Favorite from '../model/favoriteSchema';
+import Favorite, { IFavorite } from '../model/favoriteSchema';
 import User from '../model/userSchema';
 import authMiddleware from '../middleware/auth.middleware';
 import meliService from '../service/meli.service';
@@ -29,13 +29,17 @@ export default class FavoriteController {
 
       const response = await meliService.searchItemById(req.params.id, access_token);
       const { title, pictures, price, ..._ } = response;
+      const { _id, ...restFavorite } = favorite;
+
       const result = {
-        ...favorite,
+        favoriteId: _id,
+        ...restFavorite,
         title,
         thumbnail: pictures[0].url,
         thumbnail_id: pictures[0].id,
         pictures,
         price,
+        isFavorite: true,
       };
 
       return res
@@ -89,28 +93,33 @@ export default class FavoriteController {
         .select('-user')
         .lean();
 
-      const response = await meliService.searchItemsByIds(
-        favorites.map((fav) => fav.itemId),
-        access_token
-      );
+      let hydratedFavorites = [];
+      if (favorites.length > 0) {
+        const response = await meliService.searchItemsByIds(
+          favorites.map((fav) => fav.itemId),
+          access_token
+        );
 
-      const hydratedFavorites = response.map(({ body }: any) => {
-        const { title, pictures, price, ..._ } = body;
+        hydratedFavorites = response.map(({ body }: any) => {
+          const { id, title, pictures, price, ..._ } = body;
 
-        const fav = favorites.find((f) => f.itemId === body.id);
+          const fav = favorites.find((f) => f.itemId === body.id);
+          const { _id, ...restFavorite } = fav as IFavorite;
 
-        const result = {
-          ...fav,
-          title,
-          thumbnail: pictures[0].url,
-          thumbnail_id: pictures[0].id,
-          pictures,
-          price,
-        };
+          const result = {
+            favoriteId: _id,
+            ...restFavorite,
+            title,
+            thumbnail: pictures[0].url,
+            thumbnail_id: pictures[0].id,
+            pictures,
+            price,
+            isFavorite: true,
+          };
 
-        return result;
-      });
-
+          return result;
+        });
+      }
       return res
         .status(StatusCodes.OK)
         .json(
@@ -333,25 +342,7 @@ export default class FavoriteController {
  *    Favorite:
  *      type: object
  *      properties:
- *        _id:
- *          type: string
- *        user:
- *          type: string
  *        itemId:
- *          type: string
- *        comment:
- *          type: string
- *        rating:
- *          type: integer
- *          minimum: 0
- *          maximum: 5
- *        creationDate:
- *          type: string
- *        title:
- *          type: string
- *        thumbnail:
- *          type: string
- *        thumbnail_id:
  *          type: string
  *        pictures:
  *          type: array
@@ -359,6 +350,26 @@ export default class FavoriteController {
  *            $ref: '#/components/schemas/Picture'
  *        price:
  *          type: string
+ *        title:
+ *          type: string
+ *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
+ *          type: string
+ *        favoriteId:
+ *          type: string
+ *        user:
+ *          type: string
+ *        comment:
+ *          type: string
+ *        rating:
+ *          type: integer
+ *          minimum: 0
+ *          maximum: 10
+ *        creationDate:
+ *          type: string
+ *        isFavorite:
+ *          type: boolean
  *    FavoriteToCreate:
  *      type: object
  *      properties:
@@ -371,5 +382,5 @@ export default class FavoriteController {
  *        rating:
  *          type: integer
  *          minimum: 0
- *          maximum: 5
+ *          maximum: 10
  */
