@@ -110,8 +110,6 @@ export default class MeliController {
       .select('-user')
       .lean();
 
-    const { _id, ...restFavorite } = favorite as IFavorite;
-
     result = {
       itemId: id,
       title,
@@ -121,7 +119,8 @@ export default class MeliController {
       price,
     };
 
-    if (favorite)
+    if (favorite) {
+      const { _id, ...restFavorite } = favorite as IFavorite;
       result = {
         ...result,
         ...restFavorite,
@@ -129,6 +128,7 @@ export default class MeliController {
         favoriteId: _id,
         isFavorite: true,
       };
+    }
 
     return res
       .status(StatusCodes.OK)
