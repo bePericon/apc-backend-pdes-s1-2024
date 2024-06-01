@@ -1,29 +1,50 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete, Put } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, Put, ClassMiddleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
-import Favorite from '../model/favoriteSchema';
+import Favorite, { IFavorite } from '../model/favoriteSchema';
 import User from '../model/userSchema';
+import authMiddleware from '../middleware/auth.middleware';
+import meliService from '../service/meli.service';
 
 @Controller('api/favorite')
+@ClassMiddleware(authMiddleware)
 export default class FavoriteController {
   @Get(':id')
   private async get(req: Request, res: Response) {
     Logger.info(req.params.id);
 
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const favorite = await Favorite.findById(req.params.id);
+      const access_token = req.access_token!;
+
+      const favorite = await Favorite.findById(req.params.id).select('-user').lean();
+
       if (!favorite) {
         return res
           .status(StatusCodes.NOT_FOUND)
           .json(new ApiResponse('Favorito no encontrado', StatusCodes.NOT_FOUND, null));
       }
 
+      const response = await meliService.searchItemById(req.params.id, access_token);
+      const { title, pictures, price, ..._ } = response;
+      const { _id, ...restFavorite } = favorite;
+
+      const result = {
+        favoriteId: _id,
+        ...restFavorite,
+        title,
+        thumbnail: pictures[0].url,
+        thumbnail_id: pictures[0].id,
+        pictures,
+        price,
+        isFavorite: true,
+      };
+
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Favorito encontrado', StatusCodes.OK, favorite));
+        .json(new ApiResponse('Favorito encontrado', StatusCodes.OK, result));
     }
 
     return res
@@ -37,7 +58,7 @@ export default class FavoriteController {
    *  get:
    *    summary: Obtener un item favorito mediante Id
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - favorite
    *    parameters:
@@ -66,10 +87,44 @@ export default class FavoriteController {
   private async getAllFavoritesByUserId(req: Request, res: Response) {
     Logger.info(req.params.id);
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const favorites = await Favorite.find({ user: req.params.id }).select('-user');
+      const access_token = req.access_token!;
+
+      const favorites = await Favorite.find({ user: req.params.id })
+        .select('-user')
+        .lean();
+
+      let hydratedFavorites = [];
+      if (favorites.length > 0) {
+        const response = await meliService.searchItemsByIds(
+          favorites.map((fav) => fav.itemId),
+          access_token
+        );
+
+        hydratedFavorites = response.map(({ body }: any) => {
+          const { id, title, pictures, price, ..._ } = body;
+
+          const fav = favorites.find((f) => f.itemId === body.id);
+          const { _id, ...restFavorite } = fav as IFavorite;
+
+          const result = {
+            favoriteId: _id,
+            ...restFavorite,
+            title,
+            thumbnail: pictures[0].url,
+            thumbnail_id: pictures[0].id,
+            pictures,
+            price,
+            isFavorite: true,
+          };
+
+          return result;
+        });
+      }
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, favorites));
+        .json(
+          new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
+        );
     }
 
     return res
@@ -83,7 +138,7 @@ export default class FavoriteController {
    *  get:
    *    summary: Obtener los items favoritos de un usuario mediante Id del usuario
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - favorite
    *    parameters:
@@ -135,9 +190,9 @@ export default class FavoriteController {
    *  post:
    *    summary: Crear un favorito
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
-   *      - user
+   *      - favorite
    *    requestBody:
    *      description: Esquema de Favorito
    *      required: true
@@ -184,7 +239,7 @@ export default class FavoriteController {
    *      - favorite
    *    summary: Actualizar favorito
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    parameters:
    *      - in: path
    *        name: id
@@ -215,6 +270,15 @@ export default class FavoriteController {
   private async delete(req: Request, res: Response) {
     Logger.info(req.params, true);
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      await User.updateOne(
+        { _id: req.userId },
+        {
+          $pull: {
+            favorites: req.params.id,
+          },
+        }
+      );
+
       await Favorite.findByIdAndDelete(req.params.id);
       return res
         .status(StatusCodes.OK)
@@ -234,7 +298,7 @@ export default class FavoriteController {
    *      - favorite
    *    summary: Eliminar un favorito
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    parameters:
    *      - in: path
    *        name: id
@@ -278,20 +342,34 @@ export default class FavoriteController {
  *    Favorite:
  *      type: object
  *      properties:
- *        _id:
+ *        itemId:
+ *          type: string
+ *        pictures:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Picture'
+ *        price:
+ *          type: string
+ *        title:
+ *          type: string
+ *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
+ *          type: string
+ *        favoriteId:
  *          type: string
  *        user:
- *          type: string
- *        itemId:
  *          type: string
  *        comment:
  *          type: string
  *        rating:
  *          type: integer
  *          minimum: 0
- *          maximum: 5
+ *          maximum: 10
  *        creationDate:
  *          type: string
+ *        isFavorite:
+ *          type: boolean
  *    FavoriteToCreate:
  *      type: object
  *      properties:
@@ -304,5 +382,5 @@ export default class FavoriteController {
  *        rating:
  *          type: integer
  *          minimum: 0
- *          maximum: 5
+ *          maximum: 10
  */

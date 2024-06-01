@@ -1,38 +1,49 @@
-import { Controller, Get } from '@overnightjs/core';
+import { Controller, Get, Middleware, Post } from '@overnightjs/core';
 import Logger from 'jet-logger';
 import User from '../model/userSchema';
 import ApiResponse from '../class/ApiResponse';
 import { StatusCodes } from 'http-status-codes';
-import { compareSync } from 'bcrypt';
+import { compareSync, genSaltSync, hashSync } from 'bcrypt';
 import { Request, Response } from 'express';
 import axios from 'axios';
+import jwt from 'jsonwebtoken';
+import config from '../config/config';
+import { userSignUpValidationMiddleware } from '../middleware/userValidation.middleware';
+import Role from '../model/roleSchema';
 
 @Controller('api/auth')
 export default class AuthController {
-  @Get('login')
+  @Post('login')
   private async login(req: Request, res: Response) {
-    Logger.info(req.query, true);
+    Logger.info(req.body, true);
 
-    const user = await User.findOne({ email: req.query.email as string })
+    const user = await User.findOne({ email: req.body.email as string })
       .select('-roles -favorites')
       .exec();
 
     if (!user) {
       return res
         .status(StatusCodes.NOT_FOUND)
-        .json(new ApiResponse('El usuario no existe', StatusCodes.NOT_FOUND, req.query));
+        .json(new ApiResponse('El usuario no existe', StatusCodes.NOT_FOUND, req.body));
     }
 
     //Validate password
-    const result = compareSync(req.query.password as string, user.password);
+    const result = compareSync(req.body.password as string, user.password);
     if (!result) {
       return res
         .status(StatusCodes.BAD_REQUEST)
         .json(new ApiResponse('Contraseña incorrecta', StatusCodes.BAD_REQUEST, null));
     }
 
+    // Create access_token for Meli and token authorization
     const accessToken = await this.refreshAccessToken();
-    const userToReturn = await User.findOne({ email: req.query.email as string })
+    const token = jwt.sign(
+      { id: user._id, email: user.email, access_token: accessToken },
+      config.secret_token as string,
+      { expiresIn: 60000 * 60 * 4 } // 4 hours
+    );
+
+    const userToReturn = await User.findOne({ email: req.body.email as string })
       .populate({
         path: 'roles',
         populate: [
@@ -47,19 +58,11 @@ export default class AuthController {
     return (
       res
         .status(StatusCodes.OK)
-        //.cookie('access_token', accessToken, { maxAge: 10000 }); // 10 seconds
-        .cookie('access_token', accessToken, {
-          maxAge: 60000 * 60 * 4, // 4 hours
-        })
-        .cookie('user_id', user._id, {
-          maxAge: 60000 * 60 * 4, // 4 hours
-        })
         .json(
-          new ApiResponse(
-            'Se ha iniciado sesión correctamente',
-            StatusCodes.OK,
-            userToReturn
-          )
+          new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, {
+            user: userToReturn,
+            token,
+          })
         )
     );
   }
@@ -67,23 +70,18 @@ export default class AuthController {
   /**
    * @swagger
    * /api/auth/login:
-   *  get:
+   *  post:
    *    summary: Iniciar sesión en la app
+   *    description: Se devuelve el usuario y un token de autenticación (duración 4 h)
    *    tags:
    *      - auth
-   *    parameters:
-   *      - name: email
-   *        in: query
-   *        description: El email del usuario
-   *        required: true
-   *        schema:
-   *          type: string
-   *      - name: password
-   *        in: query
-   *        description: La contraseña del usuario
-   *        required: true
-   *        schema:
-   *          type: string
+   *    requestBody:
+   *      description: Esquema de Login
+   *      required: true
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/Login'
    *    responses:
    *      200:
    *        description: Se ha iniciado sesión correctamente
@@ -91,14 +89,6 @@ export default class AuthController {
    *          application/json:
    *            schema:
    *              $ref: '#/components/schemas/ApiResponseToLogin'
-   *        headers:
-   *          Set-Cookie:
-   *            description: >
-   *              Se devuelve dos cookies: *access_token* necesaria incluir en los endpoints que necesitan autorización, 
-   *              y *user_id* necesaria para ciertos endpoints que necesitan este dato
-   *            schema:
-   *              type: string
-   *              example: access_token=APP_USR-4948848510539929-042122-df1b7386b2947a765eea63331e473740-321855410; user_id:6623f2a9923750c7aa84fdb4
    *      400:
    *        description: Contraseña incorrecta
    *      404:
@@ -149,6 +139,53 @@ export default class AuthController {
         )
       );
   }
+
+  @Post('signup')
+  @Middleware(userSignUpValidationMiddleware)
+  private async add(req: Request, res: Response) {
+    Logger.info(req.body, true);
+
+    const salt = genSaltSync(10);
+    const user = new User({
+      name: req.body.name,
+      email: req.body.email,
+      password: hashSync(req.body.password, salt),
+    });
+
+    const role = await Role.findOne({ name: 'comprador' });
+    user.roles.push(role?._id);
+
+    await user.save();
+
+    return res
+      .status(StatusCodes.CREATED)
+      .json(new ApiResponse('Usuario registrado', StatusCodes.CREATED, user));
+  }
+
+  /**
+   * @swagger
+   * /api/auth/signup:
+   *  post:
+   *    summary: Registrar usuario
+   *    tags:
+   *      - auth
+   *    requestBody:
+   *      description: Esquema de Registro
+   *      required: true
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/SignUp'
+   *    responses:
+   *      201:
+   *        description: Usuario registrado
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToUser'
+   *      500:
+   *        description: Error en el servidor
+   */
 }
 
 /**
@@ -161,7 +198,12 @@ export default class AuthController {
  *        - type: object
  *          properties:
  *            data:
- *              $ref: '#/components/schemas/UserToLogin'
+ *              type: object
+ *              properties:
+ *                token:
+ *                  type: string
+ *                user:
+ *                  $ref: '#/components/schemas/UserToLogin'
  *    UserToLogin:
  *      type: object
  *      properties:
@@ -180,5 +222,21 @@ export default class AuthController {
  *          items:
  *            $ref: '#/components/schemas/Role'
  *        creationDate:
+ *          type: string
+ *    Login:
+ *      type: object
+ *      properties:
+ *        email:
+ *          type: string
+ *        password:
+ *          type: string
+ *    SignUp:
+ *      type: object
+ *      properties:
+ *        name:
+ *          type: string
+ *        email:
+ *          type: string
+ *        password:
  *          type: string
  */

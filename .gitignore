@@ -34,3 +34,4 @@ yarn-error.log*
 #Mongo
 /db_data
 .ash_history
+/docker/mongo/db_data

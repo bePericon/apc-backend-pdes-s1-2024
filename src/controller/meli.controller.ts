@@ -3,10 +3,9 @@ import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import { StatusCodes } from 'http-status-codes';
 import { Request, Response } from 'express';
-import axios from 'axios';
-import { objectToUrlParams } from '../utils/misc';
 import authMiddleware from '../middleware/auth.middleware';
-import Favorite from '../model/favoriteSchema';
+import Favorite, { IFavorite } from '../model/favoriteSchema';
+import meliService from '../service/meli.service';
 
 @Controller('api/meli')
 @ClassMiddleware(authMiddleware)
@@ -15,13 +14,44 @@ export default class MeliController {
   private async search(req: Request, res: Response) {
     Logger.info(req.query, true);
 
-    const access_token = req.cookies['access_token'];
+    const access_token = req.access_token!;
 
-    const response = await this.searchQuery(req.query, access_token);
+    const response = await meliService.searchQuery(req.query, access_token);
+
+    const results = await Promise.all(
+      response.results.map(async (res: any) => {
+        const { thumbnail, thumbnail_id } = res;
+        const found = await meliService.searchItemById(res.id, access_token);
+        const { id, title, pictures, price } = found;
+        let result;
+        const favorite = await Favorite.findOne({
+          user: req.userId,
+          itemId: id,
+        })
+          .select('-user')
+          .lean();
+
+        result = { itemId: id, title, thumbnail, thumbnail_id, pictures, price };
+
+        if (favorite) {
+          const { _id, ...restFavorite } = favorite as IFavorite;
+          result = {
+            ...result,
+            ...restFavorite,
+            favoriteId: _id,
+            isFavorite: true,
+          };
+        }
+
+        return result;
+      })
+    );
 
     return res
       .status(StatusCodes.OK)
-      .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, response));
+      .json(
+        new ApiResponse('Búsqueda finalizada', StatusCodes.OK, { ...response, results })
+      );
   }
 
   /**
@@ -30,7 +60,7 @@ export default class MeliController {
    *   get:
    *     summary: Buscar items en Meli
    *     security:
-   *       - cookieAuth: []
+   *       - bearerAuth: []
    *     tags:
    *       - meli
    *     parameters:
@@ -63,43 +93,41 @@ export default class MeliController {
    *         description: Error en el servidor
    */
 
-  private async searchQuery(query: any, access_token: string) {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    };
-
-    const { data } = await axios.get(
-      `https://api.mercadolibre.com/sites/MLA/search?${objectToUrlParams(
-        query
-      )}&status=active`,
-      config
-    );
-
-    return data;
-  }
-
   @Get('item/:id')
   private async itemById(req: Request, res: Response) {
     Logger.info(req.params.id);
 
-    const access_token = req.cookies['access_token'];
-    const user_id = req.cookies['user_id'];
+    const access_token = req.access_token!;
 
-    const response = await this.searchItemById(req.params.id, access_token);
+    const response = await meliService.searchItemById(req.params.id, access_token);
     const { id, title, pictures, price, ..._ } = response;
 
     let result;
     const favorite = await Favorite.findOne({
-      user: user_id,
+      user: req.userId,
       itemId: req.params.id,
-    }).exec();
+    })
+      .select('-user')
+      .lean();
+
+    result = {
+      itemId: id,
+      title,
+      thumbnail: pictures[0].url,
+      thumbnail_id: pictures[0].id,
+      pictures,
+      price,
+    };
 
     if (favorite) {
-      result = { id, title, pictures, price, isFavorite: favorite };
-    } else {
-      result = { id, title, pictures, price };
+      const { _id, ...restFavorite } = favorite as IFavorite;
+      result = {
+        ...result,
+        ...restFavorite,
+        itemId: id,
+        favoriteId: _id,
+        isFavorite: true,
+      };
     }
 
     return res
@@ -113,7 +141,7 @@ export default class MeliController {
    *   get:
    *     summary: Buscar item por Id en Meli
    *     security:
-   *       - cookieAuth: []
+   *      - bearerAuth: []
    *     tags:
    *       - meli
    *     parameters:
@@ -132,18 +160,6 @@ export default class MeliController {
    *       500:
    *         description: Error en el servidor
    */
-
-  private async searchItemById(id: string, access_token: string) {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    };
-
-    const { data } = await axios.get(`https://api.mercadolibre.com/items/${id}`, config);
-
-    return data;
-  }
 }
 
 /**
@@ -156,7 +172,7 @@ export default class MeliController {
  *        - type: object
  *          properties:
  *            data:
- *              $ref: '#/components/schemas/ItemById'
+ *              $ref: '#/components/schemas/Item'
  *    ApiResponseToItems:
  *      allOf:
  *        - $ref: '#/components/schemas/ApiResponse'
@@ -165,22 +181,12 @@ export default class MeliController {
  *            data:
  *              type: array
  *              items:
- *                $ref: '#/components/schemas/ItemsSearch'
- *    ItemsSearch:
+ *                $ref: '#/components/schemas/Item'
+ *    Item:
  *      type: object
+ *      required: [itemId, pictures, price, title, thumbnail, thumbnail_id]
  *      properties:
- *        id:
- *          type: string
- *        title:
- *          type: string
- *        thumbnail:
- *          type: string
- *    ItemById:
- *      type: object
- *      properties:
- *        id:
- *          type: string
- *        title:
+ *        itemId:
  *          type: string
  *        pictures:
  *          type: array
@@ -188,6 +194,26 @@ export default class MeliController {
  *            $ref: '#/components/schemas/Picture'
  *        price:
  *          type: string
+ *        title:
+ *          type: string
+ *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
+ *          type: string
+ *        favoriteId:
+ *          type: string
+ *        user:
+ *          type: string
+ *        comment:
+ *          type: string
+ *        rating:
+ *          type: integer
+ *          minimum: 0
+ *          maximum: 10
+ *        creationDate:
+ *          type: string
+ *        isFavorite:
+ *          type: boolean
  *    Picture:
  *      type: object
  *      properties:

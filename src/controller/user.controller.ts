@@ -13,7 +13,7 @@ import Logger from 'jet-logger';
 import User from '../model/userSchema';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
-import userValidationMiddleware from '../middleware/userValidation.middleware';
+import { userValidationMiddleware } from '../middleware/userValidation.middleware';
 import { genSaltSync, hashSync } from 'bcrypt';
 import authMiddleware from '../middleware/auth.middleware';
 import Role from '../model/roleSchema';
@@ -60,7 +60,7 @@ export default class UserController {
    *  get:
    *    summary: Obtener un usuario mediante Id
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - user
    *    parameters:
@@ -110,7 +110,7 @@ export default class UserController {
    *  get:
    *    summary: Obtener todos los usuarios
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - user
    *    responses:
@@ -156,7 +156,7 @@ export default class UserController {
    *  post:
    *    summary: Crear un usuario
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    tags:
    *      - user
    *    requestBody:
@@ -209,7 +209,7 @@ export default class UserController {
    *      - user
    *    summary: Actualizar usuario
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    parameters:
    *      - in: path
    *        name: id
@@ -259,7 +259,7 @@ export default class UserController {
    *      - user
    *    summary: Eliminar un usuario
    *    security:
-   *      - cookieAuth: []
+   *      - bearerAuth: []
    *    parameters:
    *      - in: path
    *        name: id

@@ -1,0 +1,14 @@
+version: '3.1'
+
+services:
+  app:
+    image: apc-backend-app
+    container_name: apc-backend
+    build:
+      context: ../../.
+      dockerfile: Dockerfile
+    ports:
+      - '8080:8080'
+    volumes:
+      - ../../:/opt/app
+      - /opt/app/node_modules
