@@ -178,16 +178,17 @@ export default class UserController {
    */
 
   @Put('update/:id')
-  @Middleware(userValidationMiddleware)
+  // @Middleware(userValidationMiddleware)
   private async update(req: Request, res: Response) {
     Logger.info(req.body);
 
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      const salt = genSaltSync(10);
       const user = {
         name: req.body.name,
         surname: req.body.surname,
         username: req.body.username,
-        password: req.body.password,
+        password: hashSync(req.body.password, salt),
         email: req.body.email,
       };
       await User.findByIdAndUpdate(req.params.id, { $set: user }, { new: true });
