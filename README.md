@@ -24,7 +24,20 @@ Using latest versions for all technologies (March 2024)
 
 ### Let's go!
 
-- Backend: 
-    - Server: `localhost:8080/api`
-    - API documentation: `http://localhost:8080/api-docs/`
+- Backend:
+  - Server: `localhost:8080/api`
+  - API documentation: `http://localhost:8080/api-docs/`
 - Mongo client web: `localhost:8081` _(user: admin, password: pass)_
+
+## Prod environment
+
+Using [Render](https://render.com/) to deploy app
+
+- https://apc-backend-app-latest.onrender.com/api-docs
+
+Using [RailWay](https://railway.app/) to deploy Mongo data base
+
+- roundhouse.proxy.rlwy.net:49871 (public networking)
+- :27017 (port)
+
+Enjoy , thanks!
