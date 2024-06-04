@@ -323,7 +323,7 @@ export default class FavoriteController {
 
   @Get('')
   private async getAll(req: Request, res: Response) {
-    const favorites = await Favorite.find({}).populate('user');
+    const favorites = await Favorite.find({});
     return res
       .status(StatusCodes.OK)
       .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, favorites));
