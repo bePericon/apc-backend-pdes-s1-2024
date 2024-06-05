@@ -418,8 +418,23 @@ export default class FavoriteController {
           });
           const { title, pictures, price, ..._ } = body;
 
+          const filteredItems = fav.items.filter((item: any) => item.rating);
+          const allHaveRating = filteredItems.length === fav.count;
+
+          let averageRating = 0;
+          if (!allHaveRating) {
+            filteredItems.forEach((item: any) => {
+              if (item.rating > averageRating) averageRating = item.rating;
+            });
+          } else {
+            const initialRating = 0;
+            const sumRating = filteredItems.reduce((acc, current) => acc + current.rating, initialRating);
+            averageRating = sumRating / fav.count;
+          }
+
           const result = {
             ...fav,
+            averageRating,
             hydrated: {
               title,
               thumbnail: pictures[0].url,
