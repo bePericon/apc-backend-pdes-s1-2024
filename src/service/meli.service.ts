@@ -30,7 +30,7 @@ class MeliService {
     };
 
     const { data } = await axios.get(
-      `${this.baseURL}/items?ids=${ids.toString()}`,
+      `${this.baseURL}/items?ids=${ids.toString()}&attributes=id,title,pictures,price`,
       config
     );
 

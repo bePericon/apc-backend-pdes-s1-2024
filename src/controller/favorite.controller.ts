@@ -8,6 +8,7 @@ import Favorite, { IFavorite } from '../model/favoriteSchema';
 import User from '../model/userSchema';
 import authMiddleware from '../middleware/auth.middleware';
 import meliService from '../service/meli.service';
+import { PList, orderList } from '../utils/misc';
 
 @Controller('api/favorite')
 @ClassMiddleware(authMiddleware)
@@ -411,15 +412,37 @@ export default class FavoriteController {
         access_token
       );
 
+      const orderedList = orderList(
+        response.map((r: any) => r.body),
+        favorites.map((fav) => fav._id)
+      );
+
       hydratedFavorites = favorites.map(
         (fav: { _id: string; items: IFavorite[]; count: number }) => {
-          const { body } = response.find(({ body }: any) => {
-            return fav._id === body.id;
-          });
-          const { title, pictures, price, ..._ } = body;
+          const { title, pictures, price } = orderedList.find(
+            (ol) => ol.id === fav._id
+          ) as PList;
+
+          const filteredItems = fav.items.filter((item: any) => item.rating);
+          const allHaveRating = filteredItems.length === fav.count;
+
+          let averageRating = 0;
+          if (!allHaveRating) {
+            filteredItems.forEach((item: any) => {
+              if (item.rating > averageRating) averageRating = item.rating;
+            });
+          } else {
+            const initialRating = 0;
+            const sumRating = filteredItems.reduce(
+              (acc, current) => acc + current.rating,
+              initialRating
+            );
+            averageRating = sumRating / fav.count;
+          }
 
           const result = {
             ...fav,
+            averageRating,
             hydrated: {
               title,
               thumbnail: pictures[0].url,
@@ -438,6 +461,26 @@ export default class FavoriteController {
       .status(StatusCodes.OK)
       .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites));
   }
+
+  /**
+   * @swagger
+   * /api/favorite/report/topfive:
+   *  get:
+   *    summary: Obtener top 5 de favoritos
+   *    security:
+   *      - bearerAuth: []
+   *    tags:
+   *      - favorite
+   *    responses:
+   *      200:
+   *        description: Favoritos encontrados
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToTopFiveFavorites'
+   *      500:
+   *        description: Error en el servidor
+   */
 }
 
 /**
@@ -460,6 +503,15 @@ export default class FavoriteController {
  *              type: array
  *              items:
  *                $ref: '#/components/schemas/Favorite'
+ *    ApiResponseToTopFiveFavorites:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              type: array
+ *              items:
+ *                $ref: '#/components/schemas/TopFiveFavorites'
  *    Favorite:
  *      type: object
  *      properties:
@@ -504,4 +556,58 @@ export default class FavoriteController {
  *          type: integer
  *          minimum: 0
  *          maximum: 10
+ *    TopFiveFavorites:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        items:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/ItemTopFive'
+ *        count:
+ *          type: integer
+ *        averageRating:
+ *          type: integer
+ *          minimum: 0
+ *          maximum: 10
+ *        hydrated:
+ *          $ref: '#/components/schemas/HydratedFavorite'
+ *    HydratedFavorite:
+ *      type: object
+ *      properties:
+ *        title:
+ *          type: string
+ *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
+ *          type: string
+ *        pictures:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Picture'
+ *        price:
+ *          type: string
+ *    ItemTopFive:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        itemId:
+ *          type: string
+ *        user:
+ *          $ref: '#/components/schemas/UserItemTopFive'
+ *    UserItemTopFive:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        name:
+ *          type: string
+ *        surname:
+ *          type: string
+ *        username:
+ *          type: string
+ *        email:
+ *          type: string
  */

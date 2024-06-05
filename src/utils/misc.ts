@@ -7,3 +7,21 @@ export const objectToUrlParams = (obj: any) => {
 
   return params.join('&');
 };
+
+export interface PList {
+  id: string;
+  title: string;
+  pictures: any;
+  price: number;
+}
+
+export function orderList(principalList: PList[], secondaryList: string[]) {
+  let returnList: PList[] = [];
+
+  secondaryList.forEach((id) => {
+    const found = principalList.find((value) => value.id === id) as PList;
+    returnList.push(found);
+  });
+
+  return returnList;
+}
