@@ -91,20 +91,23 @@ export default class FavoriteController {
 
       const favorites = await Favorite.find({ user: req.params.id })
         .select('-user')
+        .sort({ createdDate: 'asc' })
         .lean();
 
-      let hydratedFavorites = [];
+      let hydratedFavorites: any[] = [];
       if (favorites.length > 0) {
         const response = await meliService.searchItemsByIds(
           favorites.map((fav) => fav.itemId),
           access_token
         );
 
-        hydratedFavorites = response.map(({ body }: any) => {
-          const { id, title, pictures, price, ..._ } = body;
+        hydratedFavorites = favorites.map((fav: IFavorite) => {
+          const { _id, ...restFavorite } = fav;
 
-          const fav = favorites.find((f) => f.itemId === body.id);
-          const { _id, ...restFavorite } = fav as IFavorite;
+          const { body } = response.find(({ body }: any) => {
+            return fav.itemId === body.id;
+          });
+          const { id, title, pictures, price, ..._ } = body;
 
           const result = {
             favoriteId: _id,
@@ -317,6 +320,124 @@ export default class FavoriteController {
    *      500:
    *        description: Error en el servidor
    */
+
+  @Get('')
+  private async getAll(req: Request, res: Response) {
+    const favorites = await Favorite.find({});
+    return res
+      .status(StatusCodes.OK)
+      .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, favorites));
+  }
+
+  /**
+   * @swagger
+   * /api/favorite:
+   *  get:
+   *    summary: Obtener todos los favoritos
+   *    security:
+   *      - bearerAuth: []
+   *    tags:
+   *      - favorite
+   *    responses:
+   *      200:
+   *        description: Favoritos encontrados
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToFavorites'
+   *      500:
+   *        description: Error en el servidor
+   */
+
+  @Get('report/topfive')
+  private async getTopFive(req: Request, res: Response) {
+    const access_token = req.access_token!;
+
+    const favorites = await Favorite.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      {
+        $project: {
+          itemId: 1,
+          comment: 1,
+          rating: 1,
+          user: {
+            $map: {
+              input: '$user',
+              in: {
+                _id: '$$this._id',
+                name: '$$this.name',
+                surname: '$$this.surname',
+                username: '$$this.username',
+                email: '$$this.email',
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          itemId: 1,
+          comment: 1,
+          rating: 1,
+          user: { $arrayElemAt: ['$user', 0] },
+        },
+      },
+      {
+        $group: {
+          _id: '$itemId',
+          items: { $push: '$$ROOT' },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: {
+          count: -1,
+        },
+      },
+      { $limit: 5 },
+    ]);
+
+    let hydratedFavorites: any[] = [];
+    if (favorites.length > 0) {
+      const response = await meliService.searchItemsByIds(
+        favorites.map((fav) => fav._id),
+        access_token
+      );
+
+      hydratedFavorites = favorites.map(
+        (fav: { _id: string; items: IFavorite[]; count: number }) => {
+          const { body } = response.find(({ body }: any) => {
+            return fav._id === body.id;
+          });
+          const { title, pictures, price, ..._ } = body;
+
+          const result = {
+            ...fav,
+            hydrated: {
+              title,
+              thumbnail: pictures[0].url,
+              thumbnail_id: pictures[0].id,
+              pictures,
+              price,
+            },
+          };
+
+          return result;
+        }
+      );
+    }
+
+    return res
+      .status(StatusCodes.OK)
+      .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites));
+  }
 }
 
 /**
