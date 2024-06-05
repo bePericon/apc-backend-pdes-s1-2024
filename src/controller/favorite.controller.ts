@@ -8,6 +8,7 @@ import Favorite, { IFavorite } from '../model/favoriteSchema';
 import User from '../model/userSchema';
 import authMiddleware from '../middleware/auth.middleware';
 import meliService from '../service/meli.service';
+import { PList, orderList } from '../utils/misc';
 
 @Controller('api/favorite')
 @ClassMiddleware(authMiddleware)
@@ -411,12 +412,16 @@ export default class FavoriteController {
         access_token
       );
 
+      const orderedList = orderList(
+        response.map((r: any) => r.body),
+        favorites.map((fav) => fav._id)
+      );
+
       hydratedFavorites = favorites.map(
         (fav: { _id: string; items: IFavorite[]; count: number }) => {
-          const { body } = response.find(({ body }: any) => {
-            return fav._id === body.id;
-          });
-          const { title, pictures, price, ..._ } = body;
+          const { title, pictures, price } = orderedList.find(
+            (ol) => ol.id === fav._id
+          ) as PList;
 
           const filteredItems = fav.items.filter((item: any) => item.rating);
           const allHaveRating = filteredItems.length === fav.count;
@@ -428,7 +433,10 @@ export default class FavoriteController {
             });
           } else {
             const initialRating = 0;
-            const sumRating = filteredItems.reduce((acc, current) => acc + current.rating, initialRating);
+            const sumRating = filteredItems.reduce(
+              (acc, current) => acc + current.rating,
+              initialRating
+            );
             averageRating = sumRating / fav.count;
           }
 
@@ -551,13 +559,13 @@ export default class FavoriteController {
  *    TopFiveFavorites:
  *      type: object
  *      properties:
- *        _id: 
+ *        _id:
  *          type: string
  *        items:
  *          type: array
  *          items:
  *            $ref: '#/components/schemas/ItemTopFive'
- *        count: 
+ *        count:
  *          type: integer
  *        averageRating:
  *          type: integer
@@ -583,9 +591,9 @@ export default class FavoriteController {
  *    ItemTopFive:
  *      type: object
  *      properties:
- *        _id: 
+ *        _id:
  *          type: string
- *        itemId: 
+ *        itemId:
  *          type: string
  *        user:
  *          $ref: '#/components/schemas/UserItemTopFive'
