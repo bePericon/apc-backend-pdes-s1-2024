@@ -104,12 +104,27 @@ jobs:
           docker push bepericon/apc-backend-app:latest
         
 
+  # deploy-nodejs:
+  #   needs: [docker-nodejs, docker-mongo]
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Deploy to production
+  #       uses: johnbeynon/render-deploy-action@v0.0.8
+  #       with:
+  #         service-id: ${{ secrets.RENDER_SERVICE_ID }}
+  #         api-key: ${{ secrets.RENDER_API_KEY }}
+
   deploy-nodejs:
-    needs: [docker-nodejs, docker-mongo]
+    needs: [test, docker-mongo]
     runs-on: ubuntu-22.04
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Go to the nodejs docker folder
+        run: |
+          cd docker/nodejs
       - name: Deploy to production
-        uses: johnbeynon/render-deploy-action@v0.0.8
+        uses: bervProject/railway-deploy@main
         with:
-          service-id: ${{ secrets.RENDER_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: apc-nodejs-service

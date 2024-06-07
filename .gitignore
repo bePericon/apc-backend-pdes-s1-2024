@@ -35,3 +35,5 @@ yarn-error.log*
 /db_data
 .ash_history
 /docker/mongo/db_data
+
+/sonar
