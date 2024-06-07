@@ -120,11 +120,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Go to the nodejs docker folder
-        run: |
-          cd docker/nodejs
       - name: Deploy to production
         uses: bervProject/railway-deploy@main
         with:
           railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: apc-nodejs-service
+          service: apc-backend-pdes-s1-2024
