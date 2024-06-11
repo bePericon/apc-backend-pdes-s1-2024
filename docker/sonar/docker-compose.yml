@@ -7,11 +7,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 2G
+    mem_limit: 2g
     ports:
       - "127.0.0.1:9000:9000"
     networks:
