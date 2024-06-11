@@ -4,7 +4,7 @@ import { IFavorite } from './favoriteSchema';
 
 //Validation for mail.
 var email_match = [
-  /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+  /^\w+(?:[.-]\w+)*@\w+(?:[.-]\w+)*(?:\.\w{2,3})+$/,
   'Coloca un email válido',
 ];
 

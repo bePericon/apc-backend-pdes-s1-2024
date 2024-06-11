@@ -16,7 +16,7 @@ Using latest versions for all technologies (March 2024)
 
 ## Develop environment
 
-- Change name file `.env.example` to `.env`
+- Change name file **.env.example** to **.env**
 
 - Run `npm install` to get the dependencies installed.
 
@@ -25,19 +25,43 @@ Using latest versions for all technologies (March 2024)
 ### Let's go!
 
 - Backend:
-  - Server: `localhost:8080/api`
-  - API documentation: `http://localhost:8080/api-docs/`
-- Mongo client web: `localhost:8081` _(user: admin, password: pass)_
+  - Server: http://localhost:8080/api
+  - API documentation: http://localhost:8080/api-docs/
+- Mongo client web: http://localhost:8081 
+  - User: admin
+  - Password: pass
 
-## Prod environment
+### SonarQube
 
-Using [Render](https://render.com/) to deploy app
+#### Steps to run locally
 
-- https://apc-backend-app-latest.onrender.com/api-docs
+1. In folder **docker/sonar** then run ```docker compose up -d --force-recreate``` to up docker container.
 
-Using [RailWay](https://railway.app/) to deploy Mongo data base
+2. Run ```sh run-sonar-scanner.sh``` to start scanner code in root folder  .
 
-- roundhouse.proxy.rlwy.net:49871 (public networking)
-- :27017 (port)
+
+#### Enter SonarQube locally
+
+- Access in browser: localhost:9000
+  - User: admin 
+  - Password: pass (first time, after you need change it)
+
+
+#### Solved to possible problems on Windows system
+
+- Change on **run-sonar-scanner.sh** file line:
+```-v ".:/usr/src" \```
+
+- to line:
+```-v "/$(pwd).:/usr/src" \```
+
+
+## Production environment
+
+Using [RailWay](https://railway.app/) to deploy backend (Nodejs server and Mongo data base)
+
+- Swagger docs: https://apc-backend-pdes-s1-2024-production.up.railway.app/api-docs
+
+- Connection string: ```mongodb://mongo:IwotSfTyNRRhfguiYlHcJfqEVcvejNif@roundhouse.proxy.rlwy.net:33994```
 
 Enjoy , thanks!
