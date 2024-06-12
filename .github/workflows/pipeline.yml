@@ -3,8 +3,9 @@ name: Deployment Pipeline
 on:
   push:
     branches:
-      - master
-      - develop
+      # - master
+      # - develop
+      - feature/APC-36-add-k6
 
 jobs:
   avoid_reduncy:
@@ -60,6 +61,17 @@ jobs:
       - name: Test
         run: npm run test
 
+  k6_test:
+    runs-on: ubuntu-22.04
+    container: grafana/k6:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18.17
+      - name: Run k6 test
+        run: k6 run k6-scripts/test.js
+
   # docker-sonar:
   #   runs-on: ubuntu-22.04
   #   steps:
@@ -103,7 +115,7 @@ jobs:
           docker push bepericon/apc-mongo-app:latest
 
   docker-nodejs:
-    needs: [test]
+    needs: [test, k6_test]
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -136,7 +148,7 @@ jobs:
   #         api-key: ${{ secrets.RENDER_API_KEY }}
 
   deploy-nodejs:
-    needs: [test, docker-mongo]
+    needs: [test, docker-mongo, k6_test]
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
