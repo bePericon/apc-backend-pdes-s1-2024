@@ -61,16 +61,25 @@ jobs:
       - name: Test
         run: npm run test
 
+  # k6_test:
+  #   runs-on: ubuntu-22.04
+  #   container: 
+  #     image: grafana/k6:latest
+  #     options: --user root
+  #   steps:
+  #     - uses: actions/checkout@v1
+  #     - name: Run k6 test
+  #       run: k6 run k6-scripts/testing-api.js
+
   k6_test:
     runs-on: ubuntu-22.04
-    container: grafana/k6:latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run k6 local test
+        uses: grafana/k6-action@v0.3.1
         with:
-          node-version: 18.17
-      - name: Run k6 test
-        run: k6 run k6-scripts/test.js
+          filename: k6-scripts/testing-api.js
 
   # docker-sonar:
   #   runs-on: ubuntu-22.04

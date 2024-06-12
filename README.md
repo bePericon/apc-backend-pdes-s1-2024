@@ -55,6 +55,17 @@ Using latest versions for all technologies (March 2024)
 - to line:
 ```-v "/$(pwd).:/usr/src" \```
 
+### Grafana
+
+- Go to folder **docker/sonar** then run ```docker compose up -d grafana --force-recreate``` to up docker container
+
+### K6 (stress testing)
+
+> ⚠️ Important!   
+> First to run k6 you need Grafana container up 🚀
+
+- Go to folder **docker/k6** then run ```sh run-load-test```
+
 
 ## Production environment
 

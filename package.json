@@ -5,9 +5,9 @@
   "main": "main.ts",
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon ./src/main.ts",
-    "start": "nodemon -L ./src/main.ts",
+    "start": "dotenvx run --env-file=.env.production -- nodemon -L ./src/main.ts",
     "build": "tsc",
-    "test": "cross-env NODE_ENV=test jest --silent --forceExit",
+    "test": "dotenvx run --env-file=.env.test -- cross-env NODE_ENV=test jest --silent --forceExit",
     "test:cov": "jest --coverage --forceExit",
     "lint": "eslint . --ext .ts --quiet",
     "lint:fix": "eslint . --ext .ts --quiet --fix",
@@ -16,6 +16,7 @@
   "author": "Emmanuel Pericon",
   "license": "ISC",
   "dependencies": {
+    "@dotenvx/dotenvx": "^0.44.4",
     "@overnightjs/core": "^1.7.6",
     "@types/bcrypt": "^5.0.2",
     "@types/cookie-parser": "^1.4.7",
