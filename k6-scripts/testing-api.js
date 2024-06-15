@@ -12,10 +12,10 @@ export const options = {
 const USERNAME = `ucomprador@email.com`; // Set your own email or `${randomString(10)}@example.com`;
 const PASSWORD = '12345678';
 
-const BASE_URL = 'https://apc-backend-pdes-s1-2024-production.up.railway.app/api';
+const BASE_URL = 'https://apc-backend-pdes-s1-2024-production.up.railway.app';
 
 export function setup() {
-  const res = http.post(`${BASE_URL}/auth/login`, {
+  const res = http.post(`${BASE_URL}/api/auth/login`, {
       username: USERNAME,
       password: PASSWORD,
   });
