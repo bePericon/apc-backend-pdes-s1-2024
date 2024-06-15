@@ -81,6 +81,7 @@ export class ServerApp extends Server {
 
   private async initConnectionDB(): Promise<void> {
     const CONN_STR = config.db_connection_string as string;
+    console.log("🚀 ~ ServerApp ~ initConnectionDB ~ CONN_STR:", CONN_STR)
     const db = await mongoose.connect(CONN_STR);
     console.log('Data base is connect: ' + db.connection.name);
   }
