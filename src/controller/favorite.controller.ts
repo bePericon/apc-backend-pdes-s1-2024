@@ -15,42 +15,55 @@ import { PList, orderList } from '../utils/misc';
 export default class FavoriteController {
   @Get(':id')
   private async get(req: Request, res: Response) {
-    Logger.info(req.params.id);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const access_token = req.access_token!;
+      Logger.info(req.params.id);
 
-      const favorite = await Favorite.findById(req.params.id).select('-user').lean();
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        const access_token = req.access_token!;
 
-      if (!favorite) {
+        const favorite = await Favorite.findById(req.params.id).select('-user').lean();
+
+        if (!favorite) {
+          return res
+            .status(StatusCodes.NOT_FOUND)
+            .json(new ApiResponse('Favorito no encontrado', StatusCodes.NOT_FOUND, null));
+        }
+
+        const response = await meliService.searchItemById(req.params.id, access_token);
+        const { title, pictures, price, ..._ } = response;
+        const { _id, ...restFavorite } = favorite;
+
+        const result = {
+          favoriteId: _id,
+          ...restFavorite,
+          title,
+          thumbnail: pictures[0].url,
+          thumbnail_id: pictures[0].id,
+          pictures,
+          price,
+          isFavorite: true,
+        };
+
         return res
-          .status(StatusCodes.NOT_FOUND)
-          .json(new ApiResponse('Favorito no encontrado', StatusCodes.NOT_FOUND, null));
+          .status(StatusCodes.OK)
+          .json(new ApiResponse('Favorito encontrado', StatusCodes.OK, result));
       }
 
-      const response = await meliService.searchItemById(req.params.id, access_token);
-      const { title, pictures, price, ..._ } = response;
-      const { _id, ...restFavorite } = favorite;
-
-      const result = {
-        favoriteId: _id,
-        ...restFavorite,
-        title,
-        thumbnail: pictures[0].url,
-        thumbnail_id: pictures[0].id,
-        pictures,
-        price,
-        isFavorite: true,
-      };
-
       return res
-        .status(StatusCodes.OK)
-        .json(new ApiResponse('Favorito encontrado', StatusCodes.OK, result));
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
   /**
@@ -86,54 +99,67 @@ export default class FavoriteController {
 
   @Get('user/:id')
   private async getAllFavoritesByUserId(req: Request, res: Response) {
-    Logger.info(req.params.id);
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const access_token = req.access_token!;
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-      const favorites = await Favorite.find({ user: req.params.id })
-        .select('-user')
-        .sort({ createdDate: 'asc' })
-        .lean();
+      Logger.info(req.params.id);
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        const access_token = req.access_token!;
 
-      let hydratedFavorites: any[] = [];
-      if (favorites.length > 0) {
-        const response = await meliService.searchItemsByIds(
-          favorites.map((fav) => fav.itemId),
-          access_token
-        );
+        const favorites = await Favorite.find({ user: req.params.id })
+          .select('-user')
+          .sort({ createdDate: 'asc' })
+          .lean();
 
-        hydratedFavorites = favorites.map((fav: IFavorite) => {
-          const { _id, ...restFavorite } = fav;
+        let hydratedFavorites: any[] = [];
+        if (favorites.length > 0) {
+          const response = await meliService.searchItemsByIds(
+            favorites.map((fav) => fav.itemId),
+            access_token
+          );
 
-          const { body } = response.find(({ body }: any) => {
-            return fav.itemId === body.id;
+          hydratedFavorites = favorites.map((fav: IFavorite) => {
+            const { _id, ...restFavorite } = fav;
+
+            const { body } = response.find(({ body }: any) => {
+              return fav.itemId === body.id;
+            });
+            const { id, title, pictures, price, ..._ } = body;
+
+            const result = {
+              favoriteId: _id,
+              ...restFavorite,
+              title,
+              thumbnail: pictures[0].url,
+              thumbnail_id: pictures[0].id,
+              pictures,
+              price,
+              isFavorite: true,
+            };
+
+            return result;
           });
-          const { id, title, pictures, price, ..._ } = body;
-
-          const result = {
-            favoriteId: _id,
-            ...restFavorite,
-            title,
-            thumbnail: pictures[0].url,
-            thumbnail_id: pictures[0].id,
-            pictures,
-            price,
-            isFavorite: true,
-          };
-
-          return result;
-        });
+        }
+        return res
+          .status(StatusCodes.OK)
+          .json(
+            new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
+          );
       }
-      return res
-        .status(StatusCodes.OK)
-        .json(
-          new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
-        );
-    }
 
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**
@@ -167,25 +193,38 @@ export default class FavoriteController {
 
   @Post('')
   private async add(req: Request, res: Response) {
-    Logger.info(req.body, true);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-    const user = await User.findById(req.body.userId);
+      Logger.info(req.body, true);
 
-    const favorite = new Favorite({
-      user: user?._id,
-      itemId: req.body.itemId,
-      rating: req.body.rating,
-      comment: req.body.comment,
-    });
+      const user = await User.findById(req.body.userId);
 
-    const fav = await favorite.save();
+      const favorite = new Favorite({
+        user: user?._id,
+        itemId: req.body.itemId,
+        rating: req.body.rating,
+        comment: req.body.comment,
+      });
 
-    user?.favorites.push(fav?._id);
-    await user?.save();
+      const fav = await favorite.save();
 
-    return res
-      .status(StatusCodes.CREATED)
-      .json(new ApiResponse('Favorito creado', StatusCodes.CREATED, favorite));
+      user?.favorites.push(fav?._id);
+      await user?.save();
+
+      return res
+        .status(StatusCodes.CREATED)
+        .json(new ApiResponse('Favorito creado', StatusCodes.CREATED, favorite));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**
@@ -217,22 +256,39 @@ export default class FavoriteController {
 
   @Put('update/:id')
   private async update(req: Request, res: Response) {
-    Logger.info(req.params, true);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const favorite = {
-        rating: req.body.rating,
-        comment: req.body.comment,
-      };
-      await Favorite.findByIdAndUpdate(req.params.id, { $set: favorite }, { new: true });
+      Logger.info(req.params, true);
+
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        const favorite = {
+          rating: req.body.rating,
+          comment: req.body.comment,
+        };
+        await Favorite.findByIdAndUpdate(
+          req.params.id,
+          { $set: favorite },
+          { new: true }
+        );
+        return res
+          .status(StatusCodes.OK)
+          .json(new ApiResponse('Favorito actualizado', StatusCodes.OK, favorite));
+      }
+
       return res
-        .status(StatusCodes.OK)
-        .json(new ApiResponse('Favorito actualizado', StatusCodes.OK, favorite));
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
   /**
@@ -272,26 +328,39 @@ export default class FavoriteController {
 
   @Delete('delete/:id')
   private async delete(req: Request, res: Response) {
-    Logger.info(req.params, true);
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      await User.updateOne(
-        { _id: req.userId },
-        {
-          $pull: {
-            favorites: req.params.id,
-          },
-        }
-      );
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-      await Favorite.findByIdAndDelete(req.params.id);
+      Logger.info(req.params, true);
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        await User.updateOne(
+          { _id: req.userId },
+          {
+            $pull: {
+              favorites: req.params.id,
+            },
+          }
+        );
+
+        await Favorite.findByIdAndDelete(req.params.id);
+        return res
+          .status(StatusCodes.OK)
+          .json(new ApiResponse('Favorito eliminado', StatusCodes.OK, null));
+      }
+
       return res
-        .status(StatusCodes.OK)
-        .json(new ApiResponse('Favorito eliminado', StatusCodes.OK, null));
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
   /**
@@ -324,10 +393,23 @@ export default class FavoriteController {
 
   @Get('')
   private async getAll(req: Request, res: Response) {
-    const favorites = await Favorite.find({});
-    return res
-      .status(StatusCodes.OK)
-      .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, favorites));
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+
+      const favorites = await Favorite.find({});
+      return res
+        .status(StatusCodes.OK)
+        .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, favorites));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**
@@ -352,114 +434,129 @@ export default class FavoriteController {
 
   @Get('report/topfive')
   private async getTopFive(req: Request, res: Response) {
-    const access_token = req.access_token!;
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-    const favorites = await Favorite.aggregate([
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'user',
-          foreignField: '_id',
-          as: 'user',
+      const access_token = req.access_token!;
+
+      const favorites = await Favorite.aggregate([
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            as: 'user',
+          },
         },
-      },
-      {
-        $project: {
-          itemId: 1,
-          comment: 1,
-          rating: 1,
-          user: {
-            $map: {
-              input: '$user',
-              in: {
-                _id: '$$this._id',
-                name: '$$this.name',
-                surname: '$$this.surname',
-                username: '$$this.username',
-                email: '$$this.email',
+        {
+          $project: {
+            itemId: 1,
+            comment: 1,
+            rating: 1,
+            user: {
+              $map: {
+                input: '$user',
+                in: {
+                  _id: '$$this._id',
+                  name: '$$this.name',
+                  surname: '$$this.surname',
+                  username: '$$this.username',
+                  email: '$$this.email',
+                },
               },
             },
           },
         },
-      },
-      {
-        $project: {
-          itemId: 1,
-          comment: 1,
-          rating: 1,
-          user: { $arrayElemAt: ['$user', 0] },
+        {
+          $project: {
+            itemId: 1,
+            comment: 1,
+            rating: 1,
+            user: { $arrayElemAt: ['$user', 0] },
+          },
         },
-      },
-      {
-        $group: {
-          _id: '$itemId',
-          items: { $push: '$$ROOT' },
-          count: { $sum: 1 },
+        {
+          $group: {
+            _id: '$itemId',
+            items: { $push: '$$ROOT' },
+            count: { $sum: 1 },
+          },
         },
-      },
-      {
-        $sort: {
-          count: -1,
+        {
+          $sort: {
+            count: -1,
+          },
         },
-      },
-      { $limit: 5 },
-    ]);
+        { $limit: 5 },
+      ]);
 
-    let hydratedFavorites: any[] = [];
-    if (favorites.length > 0) {
-      const response = await meliService.searchItemsByIds(
-        favorites.map((fav) => fav._id),
-        access_token
-      );
+      let hydratedFavorites: any[] = [];
+      if (favorites.length > 0) {
+        const response = await meliService.searchItemsByIds(
+          favorites.map((fav) => fav._id),
+          access_token
+        );
 
-      const orderedList = orderList(
-        response.map((r: any) => r.body),
-        favorites.map((fav) => fav._id)
-      );
+        const orderedList = orderList(
+          response.map((r: any) => r.body),
+          favorites.map((fav) => fav._id)
+        );
 
-      hydratedFavorites = favorites.map(
-        (fav: { _id: string; items: IFavorite[]; count: number }) => {
-          const { title, pictures, price } = orderedList.find(
-            (ol) => ol.id === fav._id
-          ) as PList;
+        hydratedFavorites = favorites.map(
+          (fav: { _id: string; items: IFavorite[]; count: number }) => {
+            const { title, pictures, price } = orderedList.find(
+              (ol) => ol.id === fav._id
+            ) as PList;
 
-          const filteredItems = fav.items.filter((item: any) => item.rating);
-          const allHaveRating = filteredItems.length === fav.count;
+            const filteredItems = fav.items.filter((item: any) => item.rating);
+            const allHaveRating = filteredItems.length === fav.count;
 
-          let averageRating = 0;
-          if (!allHaveRating) {
-            filteredItems.forEach((item: any) => {
-              if (item.rating > averageRating) averageRating = item.rating;
-            });
-          } else {
-            const initialRating = 0;
-            const sumRating = filteredItems.reduce(
-              (acc, current) => acc + current.rating,
-              initialRating
-            );
-            averageRating = sumRating / fav.count;
+            let averageRating = 0;
+            if (!allHaveRating) {
+              filteredItems.forEach((item: any) => {
+                if (item.rating > averageRating) averageRating = item.rating;
+              });
+            } else {
+              const initialRating = 0;
+              const sumRating = filteredItems.reduce(
+                (acc, current) => acc + current.rating,
+                initialRating
+              );
+              averageRating = sumRating / fav.count;
+            }
+
+            const result = {
+              ...fav,
+              averageRating,
+              hydrated: {
+                title,
+                thumbnail: pictures[0].url,
+                thumbnail_id: pictures[0].id,
+                pictures,
+                price,
+              },
+            };
+
+            return result;
           }
+        );
+      }
 
-          const result = {
-            ...fav,
-            averageRating,
-            hydrated: {
-              title,
-              thumbnail: pictures[0].url,
-              thumbnail_id: pictures[0].id,
-              pictures,
-              price,
-            },
-          };
-
-          return result;
-        }
-      );
+      return res
+        .status(StatusCodes.OK)
+        .json(
+          new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
+        );
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    return res
-      .status(StatusCodes.OK)
-      .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites));
   }
 
   /**

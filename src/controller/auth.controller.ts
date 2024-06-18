@@ -17,8 +17,8 @@ export default class AuthController {
   private async login(req: Request, res: Response) {
     const start = Date.now();
     try {
-      Logger.info(req.body, true);
       req.metrics.requestCounter.inc({ method: req.method, status_code: res.statusCode });
+      Logger.info(req.body, true);
 
       const user = await User.findOne({ email: req.body.email as string })
         .select('-roles -favorites')
@@ -66,12 +66,6 @@ export default class AuthController {
       );
     } finally {
       const responseTimeInMs = Date.now() - start;
-      console.log(
-        '🚀 ~ AuthController ~ login ~ req.method, req.route.path, res.statusCode.toString():',
-        req.method,
-        req.route.path,
-        res.statusCode.toString()
-      );
       req.metrics.httpRequestTimer
         .labels(req.method, req.route.path, res.statusCode.toString())
         .observe(responseTimeInMs);
@@ -154,23 +148,35 @@ export default class AuthController {
   @Post('signup')
   @Middleware(userSignUpValidationMiddleware)
   private async add(req: Request, res: Response) {
-    Logger.info(req.body, true);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+      Logger.info(req.body, true);
 
-    const salt = genSaltSync(10);
-    const user = new User({
-      name: req.body.name,
-      email: req.body.email,
-      password: hashSync(req.body.password, salt),
-    });
+      const salt = genSaltSync(10);
+      const user = new User({
+        name: req.body.name,
+        email: req.body.email,
+        password: hashSync(req.body.password, salt),
+      });
 
-    const role = await Role.findOne({ name: 'comprador' });
-    user.roles.push(role?._id);
+      const role = await Role.findOne({ name: 'comprador' });
+      user.roles.push(role?._id);
 
-    await user.save();
+      await user.save();
 
-    return res
-      .status(StatusCodes.CREATED)
-      .json(new ApiResponse('Usuario registrado', StatusCodes.CREATED, user));
+      return res
+        .status(StatusCodes.CREATED)
+        .json(new ApiResponse('Usuario registrado', StatusCodes.CREATED, user));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**

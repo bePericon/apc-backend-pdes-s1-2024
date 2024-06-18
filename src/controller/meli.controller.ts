@@ -12,46 +12,58 @@ import meliService from '../service/meli.service';
 export default class MeliController {
   @Get('search')
   private async search(req: Request, res: Response) {
-    Logger.info(req.query, true);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+      Logger.info(req.query, true);
 
-    const access_token = req.access_token!;
+      const access_token = req.access_token!;
 
-    const response = await meliService.searchQuery(req.query, access_token);
+      const response = await meliService.searchQuery(req.query, access_token);
 
-    const results = await Promise.all(
-      response.results.map(async (res: any) => {
-        const { thumbnail, thumbnail_id } = res;
-        const found = await meliService.searchItemById(res.id, access_token);
-        const { id, title, pictures, price } = found;
-        let result;
-        const favorite = await Favorite.findOne({
-          user: req.userId,
-          itemId: id,
+      const results = await Promise.all(
+        response.results.map(async (res: any) => {
+          const { thumbnail, thumbnail_id } = res;
+          const found = await meliService.searchItemById(res.id, access_token);
+          const { id, title, pictures, price } = found;
+          let result;
+          const favorite = await Favorite.findOne({
+            user: req.userId,
+            itemId: id,
+          })
+            .select('-user')
+            .lean();
+
+          result = { itemId: id, title, thumbnail, thumbnail_id, pictures, price };
+
+          if (favorite) {
+            const { _id, ...restFavorite } = favorite as IFavorite;
+            result = {
+              ...result,
+              ...restFavorite,
+              favoriteId: _id,
+              isFavorite: true,
+            };
+          }
+
+          return result;
         })
-          .select('-user')
-          .lean();
-
-        result = { itemId: id, title, thumbnail, thumbnail_id, pictures, price };
-
-        if (favorite) {
-          const { _id, ...restFavorite } = favorite as IFavorite;
-          result = {
-            ...result,
-            ...restFavorite,
-            favoriteId: _id,
-            isFavorite: true,
-          };
-        }
-
-        return result;
-      })
-    );
-
-    return res
-      .status(StatusCodes.OK)
-      .json(
-        new ApiResponse('Búsqueda finalizada', StatusCodes.OK, { ...response, results })
       );
+
+      return res
+        .status(StatusCodes.OK)
+        .json(
+          new ApiResponse('Búsqueda finalizada', StatusCodes.OK, { ...response, results })
+        );
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**
@@ -95,44 +107,56 @@ export default class MeliController {
 
   @Get('item/:id')
   private async itemById(req: Request, res: Response) {
-    Logger.info(req.params.id);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+      Logger.info(req.params.id);
 
-    const access_token = req.access_token!;
+      const access_token = req.access_token!;
 
-    const response = await meliService.searchItemById(req.params.id, access_token);
-    const { id, title, pictures, price, ..._ } = response;
+      const response = await meliService.searchItemById(req.params.id, access_token);
+      const { id, title, pictures, price, ..._ } = response;
 
-    let result;
-    const favorite = await Favorite.findOne({
-      user: req.userId,
-      itemId: req.params.id,
-    })
-      .select('-user')
-      .lean();
+      let result;
+      const favorite = await Favorite.findOne({
+        user: req.userId,
+        itemId: req.params.id,
+      })
+        .select('-user')
+        .lean();
 
-    result = {
-      itemId: id,
-      title,
-      thumbnail: pictures[0].url,
-      thumbnail_id: pictures[0].id,
-      pictures,
-      price,
-    };
-
-    if (favorite) {
-      const { _id, ...restFavorite } = favorite as IFavorite;
       result = {
-        ...result,
-        ...restFavorite,
         itemId: id,
-        favoriteId: _id,
-        isFavorite: true,
+        title,
+        thumbnail: pictures[0].url,
+        thumbnail_id: pictures[0].id,
+        pictures,
+        price,
       };
-    }
 
-    return res
-      .status(StatusCodes.OK)
-      .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, result));
+      if (favorite) {
+        const { _id, ...restFavorite } = favorite as IFavorite;
+        result = {
+          ...result,
+          ...restFavorite,
+          itemId: id,
+          favoriteId: _id,
+          isFavorite: true,
+        };
+      }
+
+      return res
+        .status(StatusCodes.OK)
+        .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, result));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**
