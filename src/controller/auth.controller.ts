@@ -15,56 +15,67 @@ import Role from '../model/roleSchema';
 export default class AuthController {
   @Post('login')
   private async login(req: Request, res: Response) {
-    Logger.info(req.body, true);
+    const start = Date.now();
+    try {
+      Logger.info(req.body, true);
+      req.metrics.requestCounter.inc({ method: req.method, status_code: res.statusCode });
 
-    const user = await User.findOne({ email: req.body.email as string })
-      .select('-roles -favorites')
-      .exec();
+      const user = await User.findOne({ email: req.body.email as string })
+        .select('-roles -favorites')
+        .exec();
 
-    if (!user) {
-      return res
-        .status(StatusCodes.NOT_FOUND)
-        .json(new ApiResponse('El usuario no existe', StatusCodes.NOT_FOUND, req.body));
+      if (!user) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json(new ApiResponse('El usuario no existe', StatusCodes.NOT_FOUND, req.body));
+      }
+
+      //Validate password
+      const result = compareSync(req.body.password as string, user.password);
+      if (!result) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json(new ApiResponse('Contraseña incorrecta', StatusCodes.BAD_REQUEST, null));
+      }
+
+      // Create access_token for Meli and token authorization
+      const accessToken = await this.refreshAccessToken();
+      const token = jwt.sign(
+        { id: user._id, email: user.email, access_token: accessToken },
+        config.secret_token as string,
+        { expiresIn: 60000 * 60 * 4 } // 4 hours
+      );
+
+      const userToReturn = await User.findOne({ email: req.body.email as string })
+        .populate({
+          path: 'roles',
+          populate: [
+            {
+              path: 'permissions',
+            },
+          ],
+        })
+        .select('-password -favorites')
+        .exec();
+
+      return res.status(StatusCodes.OK).json(
+        new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, {
+          user: userToReturn,
+          token,
+        })
+      );
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      console.log(
+        '🚀 ~ AuthController ~ login ~ req.method, req.route.path, res.statusCode.toString():',
+        req.method,
+        req.route.path,
+        res.statusCode.toString()
+      );
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    //Validate password
-    const result = compareSync(req.body.password as string, user.password);
-    if (!result) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json(new ApiResponse('Contraseña incorrecta', StatusCodes.BAD_REQUEST, null));
-    }
-
-    // Create access_token for Meli and token authorization
-    const accessToken = await this.refreshAccessToken();
-    const token = jwt.sign(
-      { id: user._id, email: user.email, access_token: accessToken },
-      config.secret_token as string,
-      { expiresIn: 60000 * 60 * 4 } // 4 hours
-    );
-
-    const userToReturn = await User.findOne({ email: req.body.email as string })
-      .populate({
-        path: 'roles',
-        populate: [
-          {
-            path: 'permissions',
-          },
-        ],
-      })
-      .select('-password -favorites')
-      .exec();
-
-    return (
-      res
-        .status(StatusCodes.OK)
-        .json(
-          new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, {
-            user: userToReturn,
-            token,
-          })
-        )
-    );
   }
 
   /**

@@ -57,7 +57,9 @@ Using latest versions for all technologies (March 2024)
 
 ### Grafana
 
-- Go to folder **docker/sonar** then run ```docker compose up -d grafana --force-recreate``` to up docker container
+- Go to folder **docker/grafana** then run ```docker compose up -d grafana --force-recreate``` to up docker container
+
+- You can to access on: http://localhost:3001
 
 ### K6 (stress testing)
 
@@ -65,6 +67,12 @@ Using latest versions for all technologies (March 2024)
 > First to run k6 you need Grafana container up 🚀
 
 - Go to folder **docker/k6** then run ```sh run-load-test```
+
+### Prometheus
+
+- Go to folder **docker/prometheus** then run ```docker compose up -d prometheus --force-recreate``` to up docker container
+
+- You can to access on: http://localhost:9090
 
 
 ## Production environment

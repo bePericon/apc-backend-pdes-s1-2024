@@ -27,7 +27,7 @@ COPY jest.setup.js $HOME
 COPY sonar-project.properties $HOME
 COPY src/ $HOME/src
 COPY tsconfig.json $HOME
-COPY .env.test $HOME
+COPY .env.production $HOME/.env
 
 RUN chown -R daemon $HOME
 USER daemon
