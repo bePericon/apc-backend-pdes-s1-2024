@@ -4,13 +4,6 @@ import ApiResponse from '../class/ApiResponse';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import config from '../config/config';
 
-declare module 'express-serve-static-core' {
-  interface Request {
-    userId?: string;
-    access_token?: string;
-  }
-}
-
 const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
 
   const authorization = req.get('authorization');

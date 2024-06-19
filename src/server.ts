@@ -19,6 +19,16 @@ import FavoriteController from './controller/favorite.controller';
 import { loadData } from './data/load';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './swagger';
+import MetricsController from './controller/metrics.controller';
+import promClient from 'prom-client';
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    userId?: string;
+    access_token?: string;
+    metrics?: any;
+  }
+}
 
 export class ServerApp extends Server {
   private readonly STARTED_MSG = 'Server APC running on port: ';
@@ -34,6 +44,36 @@ export class ServerApp extends Server {
       res.header('Access-Control-Allow-Credentials', 'true');
       next();
     });
+
+    // Create a Registry to register the metrics
+    const register = new promClient.Registry();
+    register.setDefaultLabels({
+      app: 'apc-backend',
+    });
+    promClient.collectDefaultMetrics({ register });
+
+    const httpRequestTimer = new promClient.Histogram({
+      name: 'http_request_duration_ms',
+      help: 'Duration of HTTP requests in ms',
+      labelNames: ['method', 'route', 'code'],
+      // buckets for response time from 0.1ms to 1s
+      buckets: [0.1, 5, 15, 50, 100, 200, 300, 400, 500, 1000],
+    });
+    const requestCounter = new promClient.Counter({
+      name: "http_requests_total",
+      help: "Total number of HTTP requests",
+      labelNames: ["method", "status_code"],
+    });
+
+    register.registerMetric(httpRequestTimer);  
+    register.registerMetric(requestCounter);  
+
+
+    this.app.use((req, res, next) => {
+      req.metrics = { register, httpRequestTimer, requestCounter };
+      next();
+    });
+
     this.setupControllers();
 
     this.app.use(errorMiddleware);
@@ -48,13 +88,16 @@ export class ServerApp extends Server {
     req: IncomingMessage,
     res: ServerResponse
   ) {
+    const status = tokens.status(req, res);
+    const statusInfo = ['200', '201'];
+
     return JSON.stringify({
       date: tokens.date(req, res, 'iso'),
       method: tokens.method(req, res),
       url: tokens.url(req, res),
-      status: tokens.status(req, res),
+      status: status,
       response: `${tokens['response-time'](req, res)} ms`,
-      level: 'INFO',
+      level: statusInfo.includes(status as string) ? 'INFO' : 'WARN',
     });
   }
 
@@ -65,6 +108,7 @@ export class ServerApp extends Server {
     const roleController = new RoleController();
     const permissionController = new PermissionController();
     const favoriteController = new FavoriteController();
+    const metricsController = new MetricsController();
 
     super.addControllers(
       [
@@ -74,6 +118,7 @@ export class ServerApp extends Server {
         roleController,
         permissionController,
         favoriteController,
+        metricsController,
       ],
       customServer
     );
@@ -81,7 +126,7 @@ export class ServerApp extends Server {
 
   private async initConnectionDB(): Promise<void> {
     const CONN_STR = config.db_connection_string as string;
-    console.log("🚀 ~ ServerApp ~ initConnectionDB ~ CONN_STR:", CONN_STR)
+    console.log('🚀 ~ ServerApp ~ initConnectionDB ~ CONN_STR:', CONN_STR);
     const db = await mongoose.connect(CONN_STR);
     console.log('Data base is connect: ' + db.connection.name);
   }
@@ -93,7 +138,7 @@ export class ServerApp extends Server {
   public start(port: number) {
     this.app.listen(port, () => {
       logger.imp(this.STARTED_MSG + port);
-      if (process.env.NODE_ENV !== "test") loadData();
+      if (process.env.NODE_ENV !== 'test') loadData();
     });
   }
 }
