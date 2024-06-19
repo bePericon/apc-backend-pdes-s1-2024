@@ -3,8 +3,9 @@ name: Deployment Pipeline
 on:
   push:
     branches:
-      - master
-      - develop
+      - hotfix/deploy-nodejs
+      # - master
+      # - develop
 
 jobs:
   avoid_reduncy:
@@ -151,8 +152,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Deploy to production
-        uses: bervProject/railway-deploy@main
+      - uses: actions/setup-node@v4
         with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: apc-backend-pdes-s1-2024
+          node-version: 18.17
+
+      - name: Install Railway
+        run: npm i -g @railway/cli
+  
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up
+      # - name: Deploy to production
+      #   uses: bervProject/railway-deploy@main
+      #   with:
+      #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      #     service: apc-backend-pdes-s1-2024
