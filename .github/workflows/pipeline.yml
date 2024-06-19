@@ -152,17 +152,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: hubertstefanski/action-railway@v1.2
         with:
-          node-version: 18.17
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          railway_service: ${{ secrets.RAILWAY_SERVICE }}
 
-      - name: Install Railway
-        run: npm i -g @railway/cli
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 18.17
+
+      # - name: Install Railway
+      #   run: npm i -g @railway/cli
   
-      - name: Deploy
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up
+      # - name: Deploy
+      #   env:
+      #     RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      #   run: railway up
+
       # - name: Deploy to production
       #   uses: bervProject/railway-deploy@main
       #   with:
