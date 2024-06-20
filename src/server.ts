@@ -21,6 +21,7 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './swagger';
 import MetricsController from './controller/metrics.controller';
 import promClient from 'prom-client';
+import PurchaseController from './controller/purchase.controller';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -109,6 +110,7 @@ export class ServerApp extends Server {
     const permissionController = new PermissionController();
     const favoriteController = new FavoriteController();
     const metricsController = new MetricsController();
+    const purchaseController = new PurchaseController();
 
     super.addControllers(
       [
@@ -119,6 +121,7 @@ export class ServerApp extends Server {
         permissionController,
         favoriteController,
         metricsController,
+        purchaseController
       ],
       customServer
     );
