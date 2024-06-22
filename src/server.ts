@@ -61,14 +61,13 @@ export class ServerApp extends Server {
       buckets: [0.1, 5, 15, 50, 100, 200, 300, 400, 500, 1000],
     });
     const requestCounter = new promClient.Counter({
-      name: "http_requests_total",
-      help: "Total number of HTTP requests",
-      labelNames: ["method", "status_code"],
+      name: 'http_requests_total',
+      help: 'Total number of HTTP requests',
+      labelNames: ['method', 'status_code'],
     });
 
-    register.registerMetric(httpRequestTimer);  
-    register.registerMetric(requestCounter);  
-
+    register.registerMetric(httpRequestTimer);
+    register.registerMetric(requestCounter);
 
     this.app.use((req, res, next) => {
       req.metrics = { register, httpRequestTimer, requestCounter };
@@ -121,7 +120,7 @@ export class ServerApp extends Server {
         permissionController,
         favoriteController,
         metricsController,
-        purchaseController
+        purchaseController,
       ],
       customServer
     );

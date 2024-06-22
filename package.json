@@ -9,10 +9,14 @@
     "start": "nodemon -L ./src/main.ts",
     "build": "tsc",
     "test": "dotenvx run --env-file=.env.test -- cross-env NODE_ENV=test jest --silent --forceExit",
+    "test:integration": "wait-on tcp:8080 && dotenvx run --env-file=.env.test -- cross-env NODE_ENV=test jest --silent --forceExit",
+    "test:all": "npm run prod & wait-on tcp:8080 && npm run test:integration && npm run stop2",
     "test:cov": "jest --coverage --forceExit",
     "lint": "eslint . --ext .ts --quiet",
     "lint:fix": "eslint . --ext .ts --quiet --fix",
-    "lint:all": "eslint . --ext .ts"
+    "lint:all": "eslint . --ext .ts",
+    "stop2": "npm run stop-server",
+    "stop-server": "kill-port --port 8080 || :"
   },
   "author": "Emmanuel Pericon",
   "license": "ISC",
@@ -24,6 +28,7 @@
     "@typescript-eslint/parser": "^7.8.0",
     "axios": "^1.6.8",
     "bcrypt": "^5.1.1",
+    "concurrently": "^8.2.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -37,7 +42,8 @@
     "morgan": "^1.10.0",
     "prom-client": "^15.1.2",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.0"
+    "swagger-ui-express": "^5.0.0",
+    "wait-on": "^7.2.0"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",

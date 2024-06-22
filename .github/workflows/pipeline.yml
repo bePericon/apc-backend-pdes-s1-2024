@@ -58,7 +58,7 @@ jobs:
           name: dist
           path: dist
       - name: Test
-        run: npm run test
+        run: npm run test:all
 
   k6_test:
     runs-on: ubuntu-22.04
