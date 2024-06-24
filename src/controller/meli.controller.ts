@@ -4,7 +4,6 @@ import ApiResponse from '../class/ApiResponse';
 import { StatusCodes } from 'http-status-codes';
 import { Request, Response } from 'express';
 import authMiddleware from '../middleware/auth.middleware';
-import Favorite, { IFavorite } from '../model/favoriteSchema';
 import meliService from '../service/meli.service';
 import { hydrateProductsWithFavorites } from '../utils/meli.utils';
 
