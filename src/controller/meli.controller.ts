@@ -22,9 +22,9 @@ export default class MeliController {
 
       const access_token = req.access_token!;
 
-      const response = await meliService.searchQuery(req.query, access_token);
+      const { paging, results } = await meliService.searchQuery(req.query, access_token);
       const products = await Promise.all(
-        response.results.map(async (res: any) => {
+        results.map(async (res: any) => {
           const found = await meliService.searchItemById(res.id, access_token);
           return found;
         })
@@ -36,7 +36,7 @@ export default class MeliController {
 
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, hydratedProducts));
+        .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, { paging, results: hydratedProducts }));
     } finally {
       const responseTimeInMs = Date.now() - start;
       req.metrics.httpRequestTimer
