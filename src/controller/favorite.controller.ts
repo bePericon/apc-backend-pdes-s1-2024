@@ -9,6 +9,7 @@ import User from '../model/userSchema';
 import authMiddleware from '../middleware/auth.middleware';
 import meliService from '../service/meli.service';
 import { PList, orderList } from '../utils/misc';
+import { hydrateFavorites } from '../utils/favorite.utils';
 
 @Controller('api/favorite')
 @ClassMiddleware(authMiddleware)
@@ -35,24 +36,13 @@ export default class FavoriteController {
             .json(new ApiResponse('Favorito no encontrado', StatusCodes.NOT_FOUND, null));
         }
 
-        const response = await meliService.searchItemById(req.params.id, access_token);
-        const { title, pictures, price, ..._ } = response;
-        const { _id, ...restFavorite } = favorite;
-
-        const result = {
-          favoriteId: _id,
-          ...restFavorite,
-          title,
-          thumbnail: pictures[0].url,
-          thumbnail_id: pictures[0].id,
-          pictures,
-          price,
-          isFavorite: true,
-        };
+        const hydratedFavorites = await hydrateFavorites([favorite], access_token);
 
         return res
           .status(StatusCodes.OK)
-          .json(new ApiResponse('Favorito encontrado', StatusCodes.OK, result));
+          .json(
+            new ApiResponse('Favorito encontrado', StatusCodes.OK, hydratedFavorites[0])
+          );
       }
 
       return res
@@ -111,39 +101,11 @@ export default class FavoriteController {
         const access_token = req.access_token!;
 
         const favorites = await Favorite.find({ user: req.params.id })
-          .select('-user')
           .sort({ createdDate: 'asc' })
           .lean();
 
-        let hydratedFavorites: any[] = [];
-        if (favorites.length > 0) {
-          const response = await meliService.searchItemsByIds(
-            favorites.map((fav) => fav.itemId),
-            access_token
-          );
+        const hydratedFavorites = await hydrateFavorites(favorites, access_token);
 
-          hydratedFavorites = favorites.map((fav: IFavorite) => {
-            const { _id, ...restFavorite } = fav;
-
-            const { body } = response.find(({ body }: any) => {
-              return fav.itemId === body.id;
-            });
-            const { id, title, pictures, price, ..._ } = body;
-
-            const result = {
-              favoriteId: _id,
-              ...restFavorite,
-              title,
-              thumbnail: pictures[0].url,
-              thumbnail_id: pictures[0].id,
-              pictures,
-              price,
-              isFavorite: true,
-            };
-
-            return result;
-          });
-        }
         return res
           .status(StatusCodes.OK)
           .json(
@@ -204,21 +166,30 @@ export default class FavoriteController {
 
       const user = await User.findById(req.body.userId);
 
-      const favorite = new Favorite({
+      const newFavorite = new Favorite({
         user: user?._id,
         itemId: req.body.itemId,
         rating: req.body.rating,
         comment: req.body.comment,
       });
 
-      const fav = await favorite.save();
+      const savedFavorite = await newFavorite.save();
 
-      user?.favorites.push(fav?._id);
+      user?.favorites.push(savedFavorite?._id);
       await user?.save();
+
+      const access_token = req.access_token!;
+      const favorite = await Favorite.findById(savedFavorite?._id).lean();
+      const hydratedFavorites = await hydrateFavorites(
+        [favorite as IFavorite],
+        access_token
+      );
 
       return res
         .status(StatusCodes.CREATED)
-        .json(new ApiResponse('Favorito creado', StatusCodes.CREATED, favorite));
+        .json(
+          new ApiResponse('Favorito creado', StatusCodes.CREATED, hydratedFavorites[0])
+        );
     } finally {
       const responseTimeInMs = Date.now() - start;
       req.metrics.httpRequestTimer
@@ -266,18 +237,27 @@ export default class FavoriteController {
       Logger.info(req.params, true);
 
       if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-        const favorite = {
+        const updatingFavorite = {
           rating: req.body.rating,
           comment: req.body.comment,
         };
-        await Favorite.findByIdAndUpdate(
+        const favorite = await Favorite.findByIdAndUpdate(
           req.params.id,
-          { $set: favorite },
+          { $set: updatingFavorite },
           { new: true }
         );
+
+        const access_token = req.access_token!;
+        const hydratedFavorites = await hydrateFavorites(
+          [favorite as IFavorite],
+          access_token
+        );
+
         return res
           .status(StatusCodes.OK)
-          .json(new ApiResponse('Favorito actualizado', StatusCodes.OK, favorite));
+          .json(
+            new ApiResponse('Favorito actualizado', StatusCodes.OK, hydratedFavorites[0])
+          );
       }
 
       return res
@@ -400,10 +380,15 @@ export default class FavoriteController {
         status_code: res.statusCode,
       });
 
-      const favorites = await Favorite.find({});
+      const access_token = req.access_token!;
+      const favorites = await Favorite.find({}).lean();
+      const hydratedFavorites = await hydrateFavorites(favorites, access_token);
+
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Favoritos encontrados', StatusCodes.OK, favorites));
+        .json(
+          new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
+        );
     } finally {
       const responseTimeInMs = Date.now() - start;
       req.metrics.httpRequestTimer

@@ -1,10 +1,10 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete, ClassMiddleware } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, ClassMiddleware, Put } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
-import Purchase from '../model/purchaseSchema';
+import Purchase, { IPurchase } from '../model/purchaseSchema';
 import User from '../model/userSchema';
 import authMiddleware from '../middleware/auth.middleware';
 import meliService from '../service/meli.service';
@@ -26,21 +26,32 @@ export default class PurchaseController {
 
       const user = await User.findById(req.body.userId);
 
-      const purchase = new Purchase({
+      const newPurchase = new Purchase({
         user: user?._id,
         itemId: req.body.itemId,
         price: req.body.price,
         quantity: req.body.quantity,
       });
 
-      const savedPurchase = await purchase.save();
+      const savedPurchase = await newPurchase.save();
 
       user?.purchases.push(savedPurchase?._id);
       await user?.save();
 
+      const access_token = req.access_token!;
+      const userId = req.userId!;
+      const purchase = await Purchase.findById(savedPurchase?._id).lean();
+      const hydratedPurchases = await hydratePurchases(
+        [purchase as IPurchase],
+        access_token,
+        userId
+      );
+
       return res
         .status(StatusCodes.CREATED)
-        .json(new ApiResponse('Compra creada', StatusCodes.CREATED, purchase));
+        .json(
+          new ApiResponse('Compra creada', StatusCodes.CREATED, hydratedPurchases[0])
+        );
     } finally {
       const responseTimeInMs = Date.now() - start;
       req.metrics.httpRequestTimer
@@ -98,25 +109,18 @@ export default class PurchaseController {
             .json(new ApiResponse('Compra no encontrada', StatusCodes.NOT_FOUND, null));
         }
 
-        const response = await meliService.searchItemById(purchase.itemId, access_token);
-        const { title, pictures, price, ..._ } = response;
-        const { _id, ...restPurchase } = purchase;
-
-        const result = {
-          purchaseId: _id,
-          ...restPurchase,
-          hydrated: {
-            title,
-            thumbnail: pictures[0].url,
-            thumbnail_id: pictures[0].id,
-            pictures,
-            price,
-          },
-        };
+        const userId = req.userId!;
+        const hydratedPurchases = await hydratePurchases(
+          [purchase as IPurchase],
+          access_token,
+          userId
+        );
 
         return res
           .status(StatusCodes.OK)
-          .json(new ApiResponse('Compra encontrada', StatusCodes.OK, result));
+          .json(
+            new ApiResponse('Compra encontrada', StatusCodes.OK, hydratedPurchases[0])
+          );
       }
 
       return res
@@ -171,8 +175,9 @@ export default class PurchaseController {
       });
 
       const access_token = req.access_token!;
+      const userId = req.userId!;
       const purchases = await Purchase.find({}).lean();
-      const hydratedPurchases = await hydratePurchases(purchases, access_token);
+      const hydratedPurchases = await hydratePurchases(purchases, access_token, userId);
 
       return res
         .status(StatusCodes.OK)
@@ -225,7 +230,8 @@ export default class PurchaseController {
           .sort({ createdDate: 'asc' })
           .lean();
 
-        const hydratedPurchases = await hydratePurchases(purchases, access_token);
+        const userId = req.userId!;
+        const hydratedPurchases = await hydratePurchases(purchases, access_token, userId);
 
         return res
           .status(StatusCodes.OK)
@@ -339,6 +345,126 @@ export default class PurchaseController {
    *      500:
    *        description: Error en el servidor
    */
+
+  @Put('update/:id')
+  private async update(req: Request, res: Response) {
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+
+      Logger.info(req.params, true);
+
+      const { quantity, price } = req.body;
+
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        const access_token = req.access_token!;
+
+        const purchase = await Purchase.findById(req.params.id).lean();
+
+        const fromMeli = await meliService.searchItemById(
+          purchase?.itemId as string,
+          access_token
+        );
+
+        if (price !== fromMeli.price) {
+          const user = await User.findById(purchase?.user);
+
+          const newPurchase = new Purchase({
+            user: user?._id,
+            itemId: purchase?.itemId as string,
+            price: fromMeli.price,
+            quantity: quantity - (purchase?.quantity as number),
+          });
+
+          const savedPurchase = await newPurchase.save();
+
+          user?.purchases.push(savedPurchase?._id);
+          await user?.save();
+
+          return res
+            .status(StatusCodes.OK)
+            .json(
+              new ApiResponse(
+                'Se ha creado una nueva compra',
+                StatusCodes.OK,
+                savedPurchase
+              )
+            );
+        } else {
+          const updatingPurchase = {
+            quantity,
+            price,
+          };
+
+          const purchase = await Purchase.findByIdAndUpdate(
+            req.params.id,
+            { $set: updatingPurchase },
+            { new: true }
+          ).lean();
+
+          const userId = req.userId!;
+          const hydratedPurchases = await hydratePurchases(
+            [purchase as IPurchase],
+            access_token,
+            userId
+          );
+
+          return res
+            .status(StatusCodes.OK)
+            .json(
+              new ApiResponse('Compra actualizada', StatusCodes.OK, hydratedPurchases[0])
+            );
+        }
+      }
+
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/purchase/update/{id}:
+   *  put:
+   *    tags:
+   *      - purchase
+   *    summary: Actualizar compra
+   *    security:
+   *      - bearerAuth: []
+   *    parameters:
+   *      - in: path
+   *        name: id
+   *        description: Id de la compra a editar
+   *        required: true
+   *        schema:
+   *          type: string
+   *    requestBody:
+   *      description: Una compra con datos actualizados
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/PurchaseToCreate'
+   *    responses:
+   *      200:
+   *        description: Compra actualizada o Se ha creado una nueva compra
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToPurchase'
+   *      400:
+   *        description: Formato de Id incorrecto
+   *      500:
+   *        description: Error en el servidor
+   */
 }
 
 /**
@@ -364,18 +490,20 @@ export default class PurchaseController {
  *    Purchase:
  *      type: object
  *      properties:
- *        purchaseId:
- *          type: string
  *        itemId:
+ *          type: string
+ *        user:
+ *          type: string
+ *        purchaseId:
  *          type: string
  *        price:
  *          type: integer
  *        quantity:
  *          type: integer
- *        creationDate:
+ *        createdDatePurchase:
  *          type: string
  *        hydrated:
- *          $ref: '#/components/schemas/HydratedPurchase'
+ *          $ref: '#/components/schemas/Hydrated'
  *    PurchaseToCreate:
  *      type: object
  *      properties:
@@ -386,20 +514,5 @@ export default class PurchaseController {
  *        price:
  *          type: integer
  *        quantity:
- *          type: integer
- *    HydratedPurchase:
- *      type: object
- *      properties:
- *        title:
- *          type: string
- *        thumbnail:
- *          type: string
- *        thumbnail_id:
- *          type: string
- *        pictures:
- *          type: array
- *          items:
- *            $ref: '#/components/schemas/Picture'
- *        price:
  *          type: integer
  */

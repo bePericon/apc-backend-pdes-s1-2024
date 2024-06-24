@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import authMiddleware from '../middleware/auth.middleware';
 import Favorite, { IFavorite } from '../model/favoriteSchema';
 import meliService from '../service/meli.service';
+import { hydrateProductsWithFavorites } from '../utils/meli.utils';
 
 @Controller('api/meli')
 @ClassMiddleware(authMiddleware)
@@ -23,41 +24,20 @@ export default class MeliController {
       const access_token = req.access_token!;
 
       const response = await meliService.searchQuery(req.query, access_token);
-
-      const results = await Promise.all(
+      const products = await Promise.all(
         response.results.map(async (res: any) => {
-          const { thumbnail, thumbnail_id } = res;
           const found = await meliService.searchItemById(res.id, access_token);
-          const { id, title, pictures, price } = found;
-          let result;
-          const favorite = await Favorite.findOne({
-            user: req.userId,
-            itemId: id,
-          })
-            .select('-user')
-            .lean();
-
-          result = { itemId: id, title, thumbnail, thumbnail_id, pictures, price };
-
-          if (favorite) {
-            const { _id, ...restFavorite } = favorite as IFavorite;
-            result = {
-              ...result,
-              ...restFavorite,
-              favoriteId: _id,
-              isFavorite: true,
-            };
-          }
-
-          return result;
+          return found;
         })
+      );
+      const hydratedProducts = await hydrateProductsWithFavorites(
+        products,
+        req.userId as string
       );
 
       return res
         .status(StatusCodes.OK)
-        .json(
-          new ApiResponse('Búsqueda finalizada', StatusCodes.OK, { ...response, results })
-        );
+        .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, hydratedProducts));
     } finally {
       const responseTimeInMs = Date.now() - start;
       req.metrics.httpRequestTimer
@@ -117,40 +97,17 @@ export default class MeliController {
 
       const access_token = req.access_token!;
 
-      const response = await meliService.searchItemById(req.params.id, access_token);
-      const { id, title, pictures, price, ..._ } = response;
-
-      let result;
-      const favorite = await Favorite.findOne({
-        user: req.userId,
-        itemId: req.params.id,
-      })
-        .select('-user')
-        .lean();
-
-      result = {
-        itemId: id,
-        title,
-        thumbnail: pictures[0].url,
-        thumbnail_id: pictures[0].id,
-        pictures,
-        price,
-      };
-
-      if (favorite) {
-        const { _id, ...restFavorite } = favorite as IFavorite;
-        result = {
-          ...result,
-          ...restFavorite,
-          itemId: id,
-          favoriteId: _id,
-          isFavorite: true,
-        };
-      }
+      const product = await meliService.searchItemById(req.params.id, access_token);
+      const hydratedProducts = await hydrateProductsWithFavorites(
+        [product],
+        req.userId as string
+      );
 
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, result));
+        .json(
+          new ApiResponse('Búsqueda finalizada', StatusCodes.OK, hydratedProducts[0])
+        );
     } finally {
       const responseTimeInMs = Date.now() - start;
       req.metrics.httpRequestTimer
@@ -208,25 +165,15 @@ export default class MeliController {
  *                $ref: '#/components/schemas/Item'
  *    Item:
  *      type: object
- *      required: [itemId, pictures, price, title, thumbnail, thumbnail_id]
+ *      required: [itemId, user, hydrated]
  *      properties:
  *        itemId:
  *          type: string
- *        pictures:
- *          type: array
- *          items:
- *            $ref: '#/components/schemas/Picture'
- *        price:
- *          type: string
- *        title:
- *          type: string
- *        thumbnail:
- *          type: string
- *        thumbnail_id:
- *          type: string
- *        favoriteId:
- *          type: string
  *        user:
+ *          type: string
+ *        hydrated:
+ *          $ref: '#/components/schemas/Hydrated'
+ *        favoriteId:
  *          type: string
  *        comment:
  *          type: string
@@ -234,10 +181,23 @@ export default class MeliController {
  *          type: integer
  *          minimum: 0
  *          maximum: 10
- *        creationDate:
+ *        createdDateFavorite:
  *          type: string
- *        isFavorite:
- *          type: boolean
+ *    Hydrated:
+ *      type: object
+ *      properties:
+ *        title:
+ *          type: string
+ *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
+ *          type: string
+ *        pictures:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Picture'
+ *        price:
+ *          type: integer
  *    Picture:
  *      type: object
  *      properties:
