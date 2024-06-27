@@ -1,5 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete, ClassMiddleware, Put } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, ClassMiddleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
@@ -7,7 +7,6 @@ import mongoose from 'mongoose';
 import Purchase, { IPurchase } from '../model/purchaseSchema';
 import User from '../model/userSchema';
 import authenticationMiddleware from '../middleware/authentication.middleware';
-import meliService from '../service/meli.service';
 import { hydratePurchases, makePurchase } from '../utils/purchase.utils';
 
 @Controller('api/purchase')
