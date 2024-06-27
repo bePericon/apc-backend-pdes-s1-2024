@@ -1,4 +1,5 @@
-import { IPurchase } from '../model/purchaseSchema';
+import Purchase, { IPurchase } from '../model/purchaseSchema';
+import User from '../model/userSchema';
 import meliService from '../service/meli.service';
 import { hydrateFavorite } from './favorite.utils';
 
@@ -42,4 +43,35 @@ export const hydratePurchases = async (
     );
   }
   return hydratedPurchases;
+};
+
+export const makePurchase = async (
+  itemId: string,
+  userId: string,
+  newPrice: number,
+  newQuantity: number,
+  access_token: string
+) => {
+  const user = await User.findById(userId);
+
+  const newPurchase = new Purchase({
+    user: userId,
+    itemId: itemId,
+    price: newPrice,
+    quantity: newQuantity,
+  });
+
+  const savedPurchase = await newPurchase.save();
+
+  user?.purchases.push(savedPurchase?._id);
+  await user?.save();
+
+  const finalPurchase = await Purchase.findById(savedPurchase?._id).lean();
+  const hydratedPurchases = await hydratePurchases(
+    [finalPurchase as IPurchase],
+    access_token,
+    userId
+  );
+
+  return hydratedPurchases[0];
 };

@@ -15,11 +15,12 @@ import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import { userValidationMiddleware } from '../middleware/userValidation.middleware';
 import { genSaltSync, hashSync } from 'bcrypt';
-import authMiddleware from '../middleware/auth.middleware';
+import authenticationMiddleware from '../middleware/authentication.middleware';
 import Role from '../model/roleSchema';
+import authorizationMiddleware from '../middleware/authorization.middleware';
 
 @Controller('api/user')
-@ClassMiddleware(authMiddleware)
+@ClassMiddleware([authenticationMiddleware, authorizationMiddleware])
 export default class UserController {
   @Get(':id')
   private async get(req: Request, res: Response) {
@@ -59,6 +60,7 @@ export default class UserController {
    * /api/user/{id}:
    *  get:
    *    summary: Obtener un usuario mediante Id
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -109,6 +111,7 @@ export default class UserController {
    * /api/user:
    *  get:
    *    summary: Obtener todos los usuarios
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -155,6 +158,7 @@ export default class UserController {
    * /api/user:
    *  post:
    *    summary: Crear un usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -209,6 +213,7 @@ export default class UserController {
    *    tags:
    *      - user
    *    summary: Actualizar usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    parameters:
@@ -259,6 +264,7 @@ export default class UserController {
    *    tags:
    *      - user
    *    summary: Eliminar un usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    parameters:

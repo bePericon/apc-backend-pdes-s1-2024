@@ -4,7 +4,7 @@ import ApiResponse from '../class/ApiResponse';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import config from '../config/config';
 
-const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+const authenticationMiddleware = async (req: Request, res: Response, next: NextFunction) => {
 
   const authorization = req.get('authorization');
 
@@ -56,7 +56,7 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
   next();
 };
 
-export default authMiddleware;
+export default authenticationMiddleware;
 
 /**
  * @swagger

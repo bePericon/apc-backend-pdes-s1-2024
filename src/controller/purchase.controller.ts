@@ -6,12 +6,12 @@ import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import Purchase, { IPurchase } from '../model/purchaseSchema';
 import User from '../model/userSchema';
-import authMiddleware from '../middleware/auth.middleware';
+import authenticationMiddleware from '../middleware/authentication.middleware';
 import meliService from '../service/meli.service';
-import { hydratePurchases } from '../utils/purchase.utils';
+import { hydratePurchases, makePurchase } from '../utils/purchase.utils';
 
 @Controller('api/purchase')
-@ClassMiddleware(authMiddleware)
+@ClassMiddleware(authenticationMiddleware)
 export default class PurchaseController {
   @Post('')
   private async add(req: Request, res: Response) {
@@ -23,34 +23,21 @@ export default class PurchaseController {
       });
 
       Logger.info(req.body, true);
-
-      const user = await User.findById(req.body.userId);
-
-      const newPurchase = new Purchase({
-        user: user?._id,
-        itemId: req.body.itemId,
-        price: req.body.price,
-        quantity: req.body.quantity,
-      });
-
-      const savedPurchase = await newPurchase.save();
-
-      user?.purchases.push(savedPurchase?._id);
-      await user?.save();
-
+      
       const access_token = req.access_token!;
-      const userId = req.userId!;
-      const purchase = await Purchase.findById(savedPurchase?._id).lean();
-      const hydratedPurchases = await hydratePurchases(
-        [purchase as IPurchase],
-        access_token,
-        userId
+      const { itemId, price, quantity } = req.body;
+      const purchase = await makePurchase(
+        itemId,
+        req.userId as string,
+        price,
+        quantity,
+        access_token
       );
 
       return res
         .status(StatusCodes.CREATED)
         .json(
-          new ApiResponse('Compra creada', StatusCodes.CREATED, hydratedPurchases[0])
+          new ApiResponse('Compra creada', StatusCodes.CREATED, purchase)
         );
     } finally {
       const responseTimeInMs = Date.now() - start;
@@ -340,126 +327,6 @@ export default class PurchaseController {
    *          application/json:
    *            schema:
    *              $ref: '#/components/schemas/ApiResponse'
-   *      400:
-   *        description: Formato de Id incorrecto
-   *      500:
-   *        description: Error en el servidor
-   */
-
-  @Put('update/:id')
-  private async update(req: Request, res: Response) {
-    const start = Date.now();
-    try {
-      req.metrics.requestCounter.inc({
-        method: req.method,
-        status_code: res.statusCode,
-      });
-
-      Logger.info(req.params, true);
-
-      const { quantity, price } = req.body;
-
-      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-        const access_token = req.access_token!;
-
-        const purchase = await Purchase.findById(req.params.id).lean();
-
-        const fromMeli = await meliService.searchItemById(
-          purchase?.itemId as string,
-          access_token
-        );
-
-        if (price !== fromMeli.price) {
-          const user = await User.findById(purchase?.user);
-
-          const newPurchase = new Purchase({
-            user: user?._id,
-            itemId: purchase?.itemId as string,
-            price: fromMeli.price,
-            quantity: quantity - (purchase?.quantity as number),
-          });
-
-          const savedPurchase = await newPurchase.save();
-
-          user?.purchases.push(savedPurchase?._id);
-          await user?.save();
-
-          return res
-            .status(StatusCodes.OK)
-            .json(
-              new ApiResponse(
-                'Se ha creado una nueva compra',
-                StatusCodes.OK,
-                savedPurchase
-              )
-            );
-        } else {
-          const updatingPurchase = {
-            quantity,
-            price,
-          };
-
-          const purchase = await Purchase.findByIdAndUpdate(
-            req.params.id,
-            { $set: updatingPurchase },
-            { new: true }
-          ).lean();
-
-          const userId = req.userId!;
-          const hydratedPurchases = await hydratePurchases(
-            [purchase as IPurchase],
-            access_token,
-            userId
-          );
-
-          return res
-            .status(StatusCodes.OK)
-            .json(
-              new ApiResponse('Compra actualizada', StatusCodes.OK, hydratedPurchases[0])
-            );
-        }
-      }
-
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
-    } finally {
-      const responseTimeInMs = Date.now() - start;
-      req.metrics.httpRequestTimer
-        .labels(req.method, req.route.path, res.statusCode.toString())
-        .observe(responseTimeInMs);
-    }
-  }
-
-  /**
-   * @swagger
-   * /api/purchase/update/{id}:
-   *  put:
-   *    tags:
-   *      - purchase
-   *    summary: Actualizar compra
-   *    security:
-   *      - bearerAuth: []
-   *    parameters:
-   *      - in: path
-   *        name: id
-   *        description: Id de la compra a editar
-   *        required: true
-   *        schema:
-   *          type: string
-   *    requestBody:
-   *      description: Una compra con datos actualizados
-   *      content:
-   *        application/json:
-   *          schema:
-   *            $ref: '#/components/schemas/PurchaseToCreate'
-   *    responses:
-   *      200:
-   *        description: Compra actualizada o Se ha creado una nueva compra
-   *        content:
-   *          application/json:
-   *            schema:
-   *              $ref: '#/components/schemas/ApiResponseToPurchase'
    *      400:
    *        description: Formato de Id incorrecto
    *      500:
