@@ -404,6 +404,7 @@ export default class FavoriteController {
    * /api/favorite:
    *  get:
    *    summary: Obtener todos los favoritos
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -552,6 +553,7 @@ export default class FavoriteController {
    * /api/favorite/report/topfive:
    *  get:
    *    summary: Obtener top 5 de favoritos
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:

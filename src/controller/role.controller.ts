@@ -120,6 +120,7 @@ export default class RoleController {
    * /api/role:
    *  post:
    *    summary: Crear un rol de usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -165,6 +166,7 @@ export default class RoleController {
    *    tags:
    *      - role
    *    summary: Eliminar un rol de usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    parameters:

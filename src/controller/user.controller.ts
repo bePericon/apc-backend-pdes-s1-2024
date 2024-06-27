@@ -60,6 +60,7 @@ export default class UserController {
    * /api/user/{id}:
    *  get:
    *    summary: Obtener un usuario mediante Id
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -110,6 +111,7 @@ export default class UserController {
    * /api/user:
    *  get:
    *    summary: Obtener todos los usuarios
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -156,6 +158,7 @@ export default class UserController {
    * /api/user:
    *  post:
    *    summary: Crear un usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -210,6 +213,7 @@ export default class UserController {
    *    tags:
    *      - user
    *    summary: Actualizar usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    parameters:
@@ -260,6 +264,7 @@ export default class UserController {
    *    tags:
    *      - user
    *    summary: Eliminar un usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    parameters:

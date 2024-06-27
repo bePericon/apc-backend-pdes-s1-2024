@@ -61,6 +61,7 @@ export default class PermissionController {
    * /api/permission:
    *  post:
    *    summary: Crear un permiso
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -106,6 +107,7 @@ export default class PermissionController {
    *    tags:
    *      - permission
    *    summary: Eliminar un permiso
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    parameters:
