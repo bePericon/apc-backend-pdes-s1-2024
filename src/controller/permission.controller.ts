@@ -1,14 +1,15 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete, ClassMiddleware } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, ClassMiddleware, Middleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import Permission from '../model/permissionSchema';
-import authMiddleware from '../middleware/auth.middleware';
+import authenticationMiddleware from '../middleware/authentication.middleware';
+import authorizationMiddleware from '../middleware/authorization.middleware';
 
 @Controller('api/permission')
-@ClassMiddleware(authMiddleware)
+@ClassMiddleware(authenticationMiddleware)
 export default class PermissionController {
   @Get('')
   private async getAll(req: Request, res: Response) {
@@ -39,6 +40,7 @@ export default class PermissionController {
    */
 
   @Post('')
+  @Middleware(authorizationMiddleware)
   private async add(req: Request, res: Response) {
     Logger.info(req.body, true);
 
@@ -82,6 +84,7 @@ export default class PermissionController {
    */
 
   @Delete('delete/:id')
+  @Middleware(authorizationMiddleware)
   private async delete(req: Request, res: Response) {
     Logger.info(req.params, true);
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {

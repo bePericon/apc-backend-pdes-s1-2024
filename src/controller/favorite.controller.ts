@@ -1,18 +1,19 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete, Put, ClassMiddleware } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, Put, ClassMiddleware, Middleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import Favorite, { IFavorite } from '../model/favoriteSchema';
 import User from '../model/userSchema';
-import authMiddleware from '../middleware/auth.middleware';
+import authenticationMiddleware from '../middleware/authentication.middleware';
 import meliService from '../service/meli.service';
 import { PList, orderList } from '../utils/misc';
 import { hydrateFavorites } from '../utils/favorite.utils';
+import authorizationMiddleware from '../middleware/authorization.middleware';
 
 @Controller('api/favorite')
-@ClassMiddleware(authMiddleware)
+@ClassMiddleware(authenticationMiddleware)
 export default class FavoriteController {
   @Get(':id')
   private async get(req: Request, res: Response) {
@@ -101,7 +102,7 @@ export default class FavoriteController {
         const access_token = req.access_token!;
 
         const favorites = await Favorite.find({ user: req.params.id })
-          .sort({ createdDate: 'asc' })
+          .sort({ createdDate: 'desc' })
           .lean();
 
         const hydratedFavorites = await hydrateFavorites(favorites, access_token);
@@ -372,6 +373,7 @@ export default class FavoriteController {
    */
 
   @Get('')
+  @Middleware(authorizationMiddleware)
   private async getAll(req: Request, res: Response) {
     const start = Date.now();
     try {
@@ -418,6 +420,7 @@ export default class FavoriteController {
    */
 
   @Get('report/topfive')
+  @Middleware(authorizationMiddleware)
   private async getTopFive(req: Request, res: Response) {
     const start = Date.now();
     try {

@@ -15,11 +15,12 @@ import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import { userValidationMiddleware } from '../middleware/userValidation.middleware';
 import { genSaltSync, hashSync } from 'bcrypt';
-import authMiddleware from '../middleware/auth.middleware';
+import authenticationMiddleware from '../middleware/authentication.middleware';
 import Role from '../model/roleSchema';
+import authorizationMiddleware from '../middleware/authorization.middleware';
 
 @Controller('api/user')
-@ClassMiddleware(authMiddleware)
+@ClassMiddleware([authenticationMiddleware, authorizationMiddleware])
 export default class UserController {
   @Get(':id')
   private async get(req: Request, res: Response) {

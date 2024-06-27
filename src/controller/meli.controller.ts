@@ -3,12 +3,12 @@ import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import { StatusCodes } from 'http-status-codes';
 import { Request, Response } from 'express';
-import authMiddleware from '../middleware/auth.middleware';
+import authenticationMiddleware from '../middleware/authentication.middleware';
 import meliService from '../service/meli.service';
 import { hydrateProductsWithFavorites } from '../utils/meli.utils';
 
 @Controller('api/meli')
-@ClassMiddleware(authMiddleware)
+@ClassMiddleware(authenticationMiddleware)
 export default class MeliController {
   @Get('search')
   private async search(req: Request, res: Response) {
