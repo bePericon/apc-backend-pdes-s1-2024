@@ -1,15 +1,16 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete, ClassMiddleware } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, ClassMiddleware, Middleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import Role from '../model/roleSchema';
 import Permission from '../model/permissionSchema';
-import authMiddleware from '../middleware/auth.middleware';
+import authenticationMiddleware from '../middleware/authentication.middleware';
+import authorizationMiddleware from '../middleware/authorization.middleware';
 
 @Controller('api/role')
-@ClassMiddleware(authMiddleware)
+@ClassMiddleware(authenticationMiddleware)
 export default class RoleController {
   @Get(':id')
   private async get(req: Request, res: Response) {
@@ -93,6 +94,7 @@ export default class RoleController {
    */
 
   @Post('')
+  @Middleware(authorizationMiddleware)
   private async add(req: Request, res: Response) {
     Logger.info(req.body, true);
 
@@ -118,6 +120,7 @@ export default class RoleController {
    * /api/role:
    *  post:
    *    summary: Crear un rol de usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    tags:
@@ -141,6 +144,7 @@ export default class RoleController {
    */
 
   @Delete('delete/:id')
+  @Middleware(authorizationMiddleware)
   private async delete(req: Request, res: Response) {
     Logger.info(req.params, true);
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -162,6 +166,7 @@ export default class RoleController {
    *    tags:
    *      - role
    *    summary: Eliminar un rol de usuario
+   *    description: Es necesario tener permisos de Administrador
    *    security:
    *      - bearerAuth: []
    *    parameters:

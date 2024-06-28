@@ -1,0 +1,24 @@
+version: "3.4"
+
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    hostname: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    networks:
+      - grafana-external
+      - apc-backend-external
+
+networks:
+  grafana-external:
+    name: grafana_grafana
+    external: true
+  apc-backend-external:
+    name: apc-backend_apc-network
+    external: true

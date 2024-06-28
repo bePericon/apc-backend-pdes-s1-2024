@@ -1,2 +1,3 @@
 
 /db_data/*
+/docker/mongo/db_data

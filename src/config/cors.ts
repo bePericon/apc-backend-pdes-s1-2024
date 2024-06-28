@@ -32,6 +32,7 @@ export const corsOptions: CorsOptions = {
     'Content-Type',
     'Accept',
     'Access-Control-Allow-Request-Method',
+    "Access-Control-Allow-Headers"
   ],
   credentials: true,
 };

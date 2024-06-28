@@ -1,10 +1,11 @@
 import mongoose from 'mongoose';
 import { IRole } from './roleSchema';
 import { IFavorite } from './favoriteSchema';
+import { IPurchase } from './purchaseSchema';
 
 //Validation for mail.
 var email_match = [
-  /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+  /^\w+(?:[.-]\w+)*@\w+(?:[.-]\w+)*(?:\.\w{2,3})+$/,
   'Coloca un email válido',
 ];
 
@@ -17,6 +18,7 @@ export type TUser = {
   createdDate?: Date;
   roles: IRole[];
   favorites: IFavorite[];
+  purchases: IPurchase[];
 };
 
 export interface IUser extends TUser, mongoose.Document {}
@@ -61,6 +63,12 @@ const userSchema = new mongoose.Schema({
     {
       type: mongoose.Schema.ObjectId,
       ref: 'favorite',
+    },
+  ],
+  purchases: [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: 'purchase',
     },
   ],
 });

@@ -22,7 +22,15 @@ RUN npm install --quiet
 RUN npm install nodemon -g --quiet
 
 #Copy app
-COPY . $HOME
+COPY jest.config.js $HOME
+COPY jest.setup.js $HOME
+COPY sonar-project.properties $HOME
+COPY src/ $HOME/src
+COPY tsconfig.json $HOME
+COPY .env.production $HOME/.env
+
+RUN chown -R daemon $HOME
+USER daemon
 
 #Expose port 8080
 EXPOSE $PORT

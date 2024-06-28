@@ -15,56 +15,61 @@ import Role from '../model/roleSchema';
 export default class AuthController {
   @Post('login')
   private async login(req: Request, res: Response) {
-    Logger.info(req.body, true);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({ method: req.method, status_code: res.statusCode });
+      Logger.info(req.body, true);
 
-    const user = await User.findOne({ email: req.body.email as string })
-      .select('-roles -favorites')
-      .exec();
+      const user = await User.findOne({ email: req.body.email as string })
+        .select('-roles -favorites')
+        .exec();
 
-    if (!user) {
-      return res
-        .status(StatusCodes.NOT_FOUND)
-        .json(new ApiResponse('El usuario no existe', StatusCodes.NOT_FOUND, req.body));
+      if (!user) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json(new ApiResponse('El usuario no existe', StatusCodes.NOT_FOUND, req.body));
+      }
+
+      //Validate password
+      const result = compareSync(req.body.password as string, user.password);
+      if (!result) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json(new ApiResponse('Contraseña incorrecta', StatusCodes.BAD_REQUEST, null));
+      }
+
+      // Create access_token for Meli and token authorization
+      const accessToken = await this.refreshAccessToken();
+      const token = jwt.sign(
+        { id: user._id, email: user.email, access_token: accessToken },
+        config.secret_token as string,
+        { expiresIn: 60000 * 60 * 4 } // 4 hours
+      );
+
+      const userToReturn = await User.findOne({ email: req.body.email as string })
+        .populate({
+          path: 'roles',
+          populate: [
+            {
+              path: 'permissions',
+            },
+          ],
+        })
+        .select('-password -favorites')
+        .exec();
+
+      return res.status(StatusCodes.OK).json(
+        new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, {
+          user: userToReturn,
+          token,
+        })
+      );
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    //Validate password
-    const result = compareSync(req.body.password as string, user.password);
-    if (!result) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json(new ApiResponse('Contraseña incorrecta', StatusCodes.BAD_REQUEST, null));
-    }
-
-    // Create access_token for Meli and token authorization
-    const accessToken = await this.refreshAccessToken();
-    const token = jwt.sign(
-      { id: user._id, email: user.email, access_token: accessToken },
-      config.secret_token as string,
-      { expiresIn: 60000 * 60 * 4 } // 4 hours
-    );
-
-    const userToReturn = await User.findOne({ email: req.body.email as string })
-      .populate({
-        path: 'roles',
-        populate: [
-          {
-            path: 'permissions',
-          },
-        ],
-      })
-      .select('-password -favorites')
-      .exec();
-
-    return (
-      res
-        .status(StatusCodes.OK)
-        .json(
-          new ApiResponse('Se ha iniciado sesión correctamente', StatusCodes.OK, {
-            user: userToReturn,
-            token,
-          })
-        )
-    );
   }
 
   /**
@@ -143,23 +148,35 @@ export default class AuthController {
   @Post('signup')
   @Middleware(userSignUpValidationMiddleware)
   private async add(req: Request, res: Response) {
-    Logger.info(req.body, true);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+      Logger.info(req.body, true);
 
-    const salt = genSaltSync(10);
-    const user = new User({
-      name: req.body.name,
-      email: req.body.email,
-      password: hashSync(req.body.password, salt),
-    });
+      const salt = genSaltSync(10);
+      const user = new User({
+        name: req.body.name,
+        email: req.body.email,
+        password: hashSync(req.body.password, salt),
+      });
 
-    const role = await Role.findOne({ name: 'comprador' });
-    user.roles.push(role?._id);
+      const role = await Role.findOne({ name: 'comprador' });
+      user.roles.push(role?._id);
 
-    await user.save();
+      await user.save();
 
-    return res
-      .status(StatusCodes.CREATED)
-      .json(new ApiResponse('Usuario registrado', StatusCodes.CREATED, user));
+      return res
+        .status(StatusCodes.CREATED)
+        .json(new ApiResponse('Usuario registrado', StatusCodes.CREATED, user));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**

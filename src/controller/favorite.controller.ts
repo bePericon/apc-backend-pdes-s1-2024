@@ -1,55 +1,60 @@
 import { StatusCodes } from 'http-status-codes';
-import { Controller, Get, Post, Delete, Put, ClassMiddleware } from '@overnightjs/core';
+import { Controller, Get, Post, Delete, Put, ClassMiddleware, Middleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
 import mongoose from 'mongoose';
 import Favorite, { IFavorite } from '../model/favoriteSchema';
 import User from '../model/userSchema';
-import authMiddleware from '../middleware/auth.middleware';
+import authenticationMiddleware from '../middleware/authentication.middleware';
 import meliService from '../service/meli.service';
+import { PList, orderList } from '../utils/misc';
+import { hydrateFavorites } from '../utils/favorite.utils';
+import authorizationMiddleware from '../middleware/authorization.middleware';
 
 @Controller('api/favorite')
-@ClassMiddleware(authMiddleware)
+@ClassMiddleware(authenticationMiddleware)
 export default class FavoriteController {
   @Get(':id')
   private async get(req: Request, res: Response) {
-    Logger.info(req.params.id);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const access_token = req.access_token!;
+      Logger.info(req.params.id);
 
-      const favorite = await Favorite.findById(req.params.id).select('-user').lean();
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        const access_token = req.access_token!;
 
-      if (!favorite) {
+        const favorite = await Favorite.findById(req.params.id).select('-user').lean();
+
+        if (!favorite) {
+          return res
+            .status(StatusCodes.NOT_FOUND)
+            .json(new ApiResponse('Favorito no encontrado', StatusCodes.NOT_FOUND, null));
+        }
+
+        const hydratedFavorites = await hydrateFavorites([favorite], access_token);
+
         return res
-          .status(StatusCodes.NOT_FOUND)
-          .json(new ApiResponse('Favorito no encontrado', StatusCodes.NOT_FOUND, null));
+          .status(StatusCodes.OK)
+          .json(
+            new ApiResponse('Favorito encontrado', StatusCodes.OK, hydratedFavorites[0])
+          );
       }
 
-      const response = await meliService.searchItemById(req.params.id, access_token);
-      const { title, pictures, price, ..._ } = response;
-      const { _id, ...restFavorite } = favorite;
-
-      const result = {
-        favoriteId: _id,
-        ...restFavorite,
-        title,
-        thumbnail: pictures[0].url,
-        thumbnail_id: pictures[0].id,
-        pictures,
-        price,
-        isFavorite: true,
-      };
-
       return res
-        .status(StatusCodes.OK)
-        .json(new ApiResponse('Favorito encontrado', StatusCodes.OK, result));
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
   /**
@@ -85,51 +90,39 @@ export default class FavoriteController {
 
   @Get('user/:id')
   private async getAllFavoritesByUserId(req: Request, res: Response) {
-    Logger.info(req.params.id);
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const access_token = req.access_token!;
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-      const favorites = await Favorite.find({ user: req.params.id })
-        .select('-user')
-        .lean();
+      Logger.info(req.params.id);
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        const access_token = req.access_token!;
 
-      let hydratedFavorites = [];
-      if (favorites.length > 0) {
-        const response = await meliService.searchItemsByIds(
-          favorites.map((fav) => fav.itemId),
-          access_token
-        );
+        const favorites = await Favorite.find({ user: req.params.id })
+          .sort({ createdDate: 'desc' })
+          .lean();
 
-        hydratedFavorites = response.map(({ body }: any) => {
-          const { id, title, pictures, price, ..._ } = body;
+        const hydratedFavorites = await hydrateFavorites(favorites, access_token);
 
-          const fav = favorites.find((f) => f.itemId === body.id);
-          const { _id, ...restFavorite } = fav as IFavorite;
-
-          const result = {
-            favoriteId: _id,
-            ...restFavorite,
-            title,
-            thumbnail: pictures[0].url,
-            thumbnail_id: pictures[0].id,
-            pictures,
-            price,
-            isFavorite: true,
-          };
-
-          return result;
-        });
+        return res
+          .status(StatusCodes.OK)
+          .json(
+            new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
+          );
       }
-      return res
-        .status(StatusCodes.OK)
-        .json(
-          new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
-        );
-    }
 
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**
@@ -163,25 +156,47 @@ export default class FavoriteController {
 
   @Post('')
   private async add(req: Request, res: Response) {
-    Logger.info(req.body, true);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-    const user = await User.findById(req.body.userId);
+      Logger.info(req.body, true);
 
-    const favorite = new Favorite({
-      user: user?._id,
-      itemId: req.body.itemId,
-      rating: req.body.rating,
-      comment: req.body.comment,
-    });
+      const user = await User.findById(req.body.userId);
 
-    const fav = await favorite.save();
+      const newFavorite = new Favorite({
+        user: user?._id,
+        itemId: req.body.itemId,
+        rating: req.body.rating,
+        comment: req.body.comment,
+      });
 
-    user?.favorites.push(fav?._id);
-    await user?.save();
+      const savedFavorite = await newFavorite.save();
 
-    return res
-      .status(StatusCodes.CREATED)
-      .json(new ApiResponse('Favorito creado', StatusCodes.CREATED, favorite));
+      user?.favorites.push(savedFavorite?._id);
+      await user?.save();
+
+      const access_token = req.access_token!;
+      const favorite = await Favorite.findById(savedFavorite?._id).lean();
+      const hydratedFavorites = await hydrateFavorites(
+        [favorite as IFavorite],
+        access_token
+      );
+
+      return res
+        .status(StatusCodes.CREATED)
+        .json(
+          new ApiResponse('Favorito creado', StatusCodes.CREATED, hydratedFavorites[0])
+        );
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
   }
 
   /**
@@ -213,22 +228,48 @@ export default class FavoriteController {
 
   @Put('update/:id')
   private async update(req: Request, res: Response) {
-    Logger.info(req.params, true);
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      const favorite = {
-        rating: req.body.rating,
-        comment: req.body.comment,
-      };
-      await Favorite.findByIdAndUpdate(req.params.id, { $set: favorite }, { new: true });
+      Logger.info(req.params, true);
+
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        const updatingFavorite = {
+          rating: req.body.rating,
+          comment: req.body.comment,
+        };
+        const favorite = await Favorite.findByIdAndUpdate(
+          req.params.id,
+          { $set: updatingFavorite },
+          { new: true }
+        );
+
+        const access_token = req.access_token!;
+        const hydratedFavorites = await hydrateFavorites(
+          [favorite as IFavorite],
+          access_token
+        );
+
+        return res
+          .status(StatusCodes.OK)
+          .json(
+            new ApiResponse('Favorito actualizado', StatusCodes.OK, hydratedFavorites[0])
+          );
+      }
+
       return res
-        .status(StatusCodes.OK)
-        .json(new ApiResponse('Favorito actualizado', StatusCodes.OK, favorite));
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
   /**
@@ -268,26 +309,39 @@ export default class FavoriteController {
 
   @Delete('delete/:id')
   private async delete(req: Request, res: Response) {
-    Logger.info(req.params, true);
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      await User.updateOne(
-        { _id: req.userId },
-        {
-          $pull: {
-            favorites: req.params.id,
-          },
-        }
-      );
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
 
-      await Favorite.findByIdAndDelete(req.params.id);
+      Logger.info(req.params, true);
+      if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+        await User.updateOne(
+          { _id: req.userId },
+          {
+            $pull: {
+              favorites: req.params.id,
+            },
+          }
+        );
+
+        await Favorite.findByIdAndDelete(req.params.id);
+        return res
+          .status(StatusCodes.OK)
+          .json(new ApiResponse('Favorito eliminado', StatusCodes.OK, null));
+      }
+
       return res
-        .status(StatusCodes.OK)
-        .json(new ApiResponse('Favorito eliminado', StatusCodes.OK, null));
+        .status(StatusCodes.BAD_REQUEST)
+        .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
     }
-
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json(new ApiResponse('Formato de Id incorrecto', StatusCodes.BAD_REQUEST, null));
   }
 
   /**
@@ -317,6 +371,203 @@ export default class FavoriteController {
    *      500:
    *        description: Error en el servidor
    */
+
+  @Get('')
+  @Middleware(authorizationMiddleware)
+  private async getAll(req: Request, res: Response) {
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+
+      const access_token = req.access_token!;
+      const favorites = await Favorite.find({}).lean();
+      const hydratedFavorites = await hydrateFavorites(favorites, access_token);
+
+      return res
+        .status(StatusCodes.OK)
+        .json(
+          new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
+        );
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/favorite:
+   *  get:
+   *    summary: Obtener todos los favoritos
+   *    description: Es necesario tener permisos de Administrador
+   *    security:
+   *      - bearerAuth: []
+   *    tags:
+   *      - favorite
+   *    responses:
+   *      200:
+   *        description: Favoritos encontrados
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToFavorites'
+   *      500:
+   *        description: Error en el servidor
+   */
+
+  @Get('report/topfive')
+  @Middleware(authorizationMiddleware)
+  private async getTopFive(req: Request, res: Response) {
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+
+      const access_token = req.access_token!;
+
+      const favorites = await Favorite.aggregate([
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        {
+          $project: {
+            itemId: 1,
+            comment: 1,
+            rating: 1,
+            user: {
+              $map: {
+                input: '$user',
+                in: {
+                  _id: '$$this._id',
+                  name: '$$this.name',
+                  surname: '$$this.surname',
+                  username: '$$this.username',
+                  email: '$$this.email',
+                },
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            itemId: 1,
+            comment: 1,
+            rating: 1,
+            user: { $arrayElemAt: ['$user', 0] },
+          },
+        },
+        {
+          $group: {
+            _id: '$itemId',
+            items: { $push: '$$ROOT' },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: {
+            count: -1,
+          },
+        },
+        { $limit: 5 },
+      ]);
+
+      let hydratedFavorites: any[] = [];
+      if (favorites.length > 0) {
+        const response = await meliService.searchItemsByIds(
+          favorites.map((fav) => fav._id),
+          access_token
+        );
+
+        const orderedList = orderList(
+          response.map((r: any) => r.body),
+          favorites.map((fav) => fav._id)
+        );
+
+        hydratedFavorites = favorites.map(
+          (fav: { _id: string; items: IFavorite[]; count: number }) => {
+            const { title, pictures, price } = orderedList.find(
+              (ol) => ol.id === fav._id
+            ) as PList;
+
+            const filteredItems = fav.items.filter((item: any) => item.rating);
+            const allHaveRating = filteredItems.length === fav.count;
+
+            let averageRating = 0;
+            if (!allHaveRating) {
+              filteredItems.forEach((item: any) => {
+                if (item.rating > averageRating) averageRating = item.rating;
+              });
+            } else {
+              const initialRating = 0;
+              const sumRating = filteredItems.reduce(
+                (acc, current) => acc + current.rating,
+                initialRating
+              );
+              averageRating = sumRating / fav.count;
+            }
+
+            const result = {
+              ...fav,
+              averageRating,
+              hydrated: {
+                title,
+                thumbnail: pictures[0].url,
+                thumbnail_id: pictures[0].id,
+                pictures,
+                price,
+              },
+            };
+
+            return result;
+          }
+        );
+      }
+
+      return res
+        .status(StatusCodes.OK)
+        .json(
+          new ApiResponse('Favoritos encontrados', StatusCodes.OK, hydratedFavorites)
+        );
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/favorite/report/topfive:
+   *  get:
+   *    summary: Obtener top 5 de favoritos
+   *    description: Es necesario tener permisos de Administrador
+   *    security:
+   *      - bearerAuth: []
+   *    tags:
+   *      - favorite
+   *    responses:
+   *      200:
+   *        description: Favoritos encontrados
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToTopFiveFavorites'
+   *      500:
+   *        description: Error en el servidor
+   */
 }
 
 /**
@@ -339,6 +590,15 @@ export default class FavoriteController {
  *              type: array
  *              items:
  *                $ref: '#/components/schemas/Favorite'
+ *    ApiResponseToTopFiveFavorites:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              type: array
+ *              items:
+ *                $ref: '#/components/schemas/TopFiveFavorites'
  *    Favorite:
  *      type: object
  *      properties:
@@ -383,4 +643,58 @@ export default class FavoriteController {
  *          type: integer
  *          minimum: 0
  *          maximum: 10
+ *    TopFiveFavorites:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        items:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/ItemTopFive'
+ *        count:
+ *          type: integer
+ *        averageRating:
+ *          type: integer
+ *          minimum: 0
+ *          maximum: 10
+ *        hydrated:
+ *          $ref: '#/components/schemas/HydratedFavorite'
+ *    HydratedFavorite:
+ *      type: object
+ *      properties:
+ *        title:
+ *          type: string
+ *        thumbnail:
+ *          type: string
+ *        thumbnail_id:
+ *          type: string
+ *        pictures:
+ *          type: array
+ *          items:
+ *            $ref: '#/components/schemas/Picture'
+ *        price:
+ *          type: string
+ *    ItemTopFive:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        itemId:
+ *          type: string
+ *        user:
+ *          $ref: '#/components/schemas/UserItemTopFive'
+ *    UserItemTopFive:
+ *      type: object
+ *      properties:
+ *        _id:
+ *          type: string
+ *        name:
+ *          type: string
+ *        surname:
+ *          type: string
+ *        username:
+ *          type: string
+ *        email:
+ *          type: string
  */
