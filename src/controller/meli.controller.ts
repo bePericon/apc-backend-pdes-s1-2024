@@ -29,6 +29,7 @@ export default class MeliController {
           return found;
         })
       );
+
       const hydratedProducts = await hydrateProductsWithFavorites(
         products,
         req.userId as string
@@ -36,7 +37,12 @@ export default class MeliController {
 
       return res
         .status(StatusCodes.OK)
-        .json(new ApiResponse('Búsqueda finalizada', StatusCodes.OK, { paging, results: hydratedProducts }));
+        .json(
+          new ApiResponse('Búsqueda finalizada', StatusCodes.OK, {
+            paging,
+            results: hydratedProducts,
+          })
+        );
     } finally {
       const responseTimeInMs = Date.now() - start;
       req.metrics.httpRequestTimer
