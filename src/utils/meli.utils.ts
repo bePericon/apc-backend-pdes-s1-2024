@@ -1,3 +1,4 @@
+import meliService from '../service/meli.service';
 import { hydrateFavorite } from './favorite.utils';
 
 export const hydrateProductsWithFavorites = async (products: any[], userId: string) => {
@@ -26,4 +27,21 @@ export const hydrateProductsWithFavorites = async (products: any[], userId: stri
     );
   }
   return hydratedProducts;
+};
+
+export const hydrateProduct = async (product: any, access_token: string) => {
+  const response = await meliService.searchItemById(product._id, access_token);
+
+  const { title, pictures, price, ..._ } = response;
+
+  const result = {
+    itemId: product._id,
+    title,
+    thumbnail: pictures[0].url,
+    thumbnail_id: pictures[0].id,
+    pictures,
+    price,
+  };
+
+  return result;
 };
