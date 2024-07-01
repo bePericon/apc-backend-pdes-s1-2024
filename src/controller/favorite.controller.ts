@@ -383,7 +383,7 @@ export default class FavoriteController {
       });
 
       const access_token = req.access_token!;
-      const favorites = await Favorite.find({}).lean();
+      const favorites = await Favorite.find({}).sort({ createdDate: 'desc' }).lean();
       const hydratedFavorites = await hydrateFavorites(favorites, access_token);
 
       return res

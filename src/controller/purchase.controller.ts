@@ -1,12 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  ClassMiddleware,
-  Middleware,
-} from '@overnightjs/core';
+import { Controller, Get, Post, Delete, ClassMiddleware } from '@overnightjs/core';
 import { Request, Response } from 'express';
 import Logger from 'jet-logger';
 import ApiResponse from '../class/ApiResponse';
@@ -15,8 +8,6 @@ import Purchase, { IPurchase } from '../model/purchaseSchema';
 import User from '../model/userSchema';
 import authenticationMiddleware from '../middleware/authentication.middleware';
 import { hydratePurchases, makePurchase } from '../utils/purchase.utils';
-import authorizationMiddleware from '../middleware/authorization.middleware';
-import meliService from '../service/meli.service';
 import { hydrateProduct } from '../utils/meli.utils';
 
 @Controller('api/purchase')
@@ -170,7 +161,7 @@ export default class PurchaseController {
 
       const access_token = req.access_token!;
       const userId = req.userId!;
-      const purchases = await Purchase.find({}).lean();
+      const purchases = await Purchase.find({}).sort({ createdDate: 'desc' }).lean();
       const hydratedPurchases = await hydratePurchases(purchases, access_token, userId);
 
       return res
@@ -384,8 +375,8 @@ export default class PurchaseController {
             return {
               itemId: res._id,
               count: res.count,
-              hydrated
-            }
+              hydrated,
+            };
           })
         );
       }
