@@ -31,20 +31,21 @@ Using latest versions for all technologies (March 2024)
   - User: admin
   - Password: pass
 
-### SonarQube
+### Sonarqube
 
 #### Steps to run locally
 
-1. In folder **docker/sonar** then run ```docker compose up -d --force-recreate``` to up docker container.
+1. In folder **docker/sonar** then run ```docker compose up -d sonarqube --force-recreate ``` to up docker container.
 
-2. Run ```sh run-sonar-scanner.sh``` to start scanner code in root folder  .
-
-
-#### Enter SonarQube locally
-
-- Access in browser: localhost:9000
+2. You can to access on: http://localhost:9000
   - User: admin 
-  - Password: pass (first time, after you need change it)
+  - Password: pass 
+
+The first time you should to change password and write it on sonar-project.properties before run scanner.
+
+3. Create a new project, take the token and write it on sonar-project.properties before run scanner
+
+4. Run ```sh run-sonar-scanner.sh``` to start scanner in root folder.
 
 
 #### Solved to possible problems on Windows system
@@ -81,6 +82,6 @@ Using [RailWay](https://railway.app/) to deploy backend (Nodejs server and Mongo
 
 - Swagger docs: https://apc-backend-pdes-s1-2024-production.up.railway.app/api-docs
 
-- Connection string: ```mongodb://mongo:IwotSfTyNRRhfguiYlHcJfqEVcvejNif@roundhouse.proxy.rlwy.net:33994```
+- Connection string: ```mongodb://mongo:nfiDRmDvAJOtUBDGvgPaimaXGsnDUuJJ@viaduct.proxy.rlwy.net:12140```
 
 Enjoy , thanks!

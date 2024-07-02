@@ -8,6 +8,7 @@ import Purchase, { IPurchase } from '../model/purchaseSchema';
 import User from '../model/userSchema';
 import authenticationMiddleware from '../middleware/authentication.middleware';
 import { hydratePurchases, makePurchase } from '../utils/purchase.utils';
+import { hydrateProduct } from '../utils/meli.utils';
 
 @Controller('api/purchase')
 @ClassMiddleware(authenticationMiddleware)
@@ -22,7 +23,7 @@ export default class PurchaseController {
       });
 
       Logger.info(req.body, true);
-      
+
       const access_token = req.access_token!;
       const { itemId, price, quantity } = req.body;
       const purchase = await makePurchase(
@@ -35,9 +36,7 @@ export default class PurchaseController {
 
       return res
         .status(StatusCodes.CREATED)
-        .json(
-          new ApiResponse('Compra creada', StatusCodes.CREATED, purchase)
-        );
+        .json(new ApiResponse('Compra creada', StatusCodes.CREATED, purchase));
     } finally {
       const responseTimeInMs = Date.now() - start;
       req.metrics.httpRequestTimer
@@ -162,7 +161,7 @@ export default class PurchaseController {
 
       const access_token = req.access_token!;
       const userId = req.userId!;
-      const purchases = await Purchase.find({}).lean();
+      const purchases = await Purchase.find({}).sort({ createdDate: 'desc' }).lean();
       const hydratedPurchases = await hydratePurchases(purchases, access_token, userId);
 
       return res
@@ -331,6 +330,88 @@ export default class PurchaseController {
    *      500:
    *        description: Error en el servidor
    */
+
+  @Get('report/top-five-best-selling-purchases')
+  private async getTopFiveBestSellingPurchases(req: Request, res: Response) {
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+
+      const access_token = req.access_token!;
+
+      const purchases = await Purchase.aggregate([
+        {
+          $project: {
+            _id: 1,
+            itemId: 1,
+            quantity: 1,
+            price: 1,
+            user: 1,
+            createdDate: 1,
+          },
+        },
+        {
+          $group: {
+            _id: '$itemId',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: {
+            count: -1,
+          },
+        },
+        { $limit: 5 },
+      ]);
+
+      let hydratedPurchases: any[] = [];
+      if (purchases.length > 0) {
+        hydratedPurchases = await Promise.all(
+          purchases.map(async (res: any) => {
+            const hydrated = await hydrateProduct(res, access_token);
+            return {
+              itemId: res._id,
+              count: res.count,
+              hydrated,
+            };
+          })
+        );
+      }
+
+      return res
+        .status(StatusCodes.OK)
+        .json(new ApiResponse('Compras encontradas', StatusCodes.OK, hydratedPurchases));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/purchase/top-five-best-selling-purchases:
+   *  get:
+   *    summary: Obtener top 5 productos mas vendidos
+   *    description: Es necesario tener permisos de Administrador
+   *    security:
+   *      - bearerAuth: []
+   *    tags:
+   *      - purchase
+   *    responses:
+   *      200:
+   *        description: Compras encontradas
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseTopFiveBestSellingPurchases'
+   *      500:
+   *        description: Error en el servidor
+   */
 }
 
 /**
@@ -353,8 +434,18 @@ export default class PurchaseController {
  *              type: array
  *              items:
  *                $ref: '#/components/schemas/Purchase'
+ *    ApiResponseTopFiveBestSellingPurchases:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              type: array
+ *              items:
+ *                $ref: '#/components/schemas/TopFiveBestSellingPurchases'
  *    Purchase:
  *      type: object
+ *      required: [itemId, user, purchaseId, price, quantity, createdDatePurchase, hydrated]
  *      properties:
  *        itemId:
  *          type: string
@@ -380,5 +471,14 @@ export default class PurchaseController {
  *        price:
  *          type: integer
  *        quantity:
+ *          type: integer
+ *    TopFiveBestSellingPurchases:
+ *      type: object
+ *      properties:
+ *        itemId:
+ *          type: string
+ *        hydrated:
+ *          $ref: '#/components/schemas/Hydrated'
+ *        count:
  *          type: integer
  */

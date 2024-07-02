@@ -383,7 +383,7 @@ export default class FavoriteController {
       });
 
       const access_token = req.access_token!;
-      const favorites = await Favorite.find({}).lean();
+      const favorites = await Favorite.find({}).sort({ createdDate: 'desc' }).lean();
       const hydratedFavorites = await hydrateFavorites(favorites, access_token);
 
       return res
@@ -420,7 +420,7 @@ export default class FavoriteController {
    *        description: Error en el servidor
    */
 
-  @Get('report/topfive')
+  @Get('report/top-five')
   @Middleware(authorizationMiddleware)
   private async getTopFive(req: Request, res: Response) {
     const start = Date.now();

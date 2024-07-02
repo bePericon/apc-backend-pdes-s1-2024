@@ -18,6 +18,8 @@ import { genSaltSync, hashSync } from 'bcrypt';
 import authenticationMiddleware from '../middleware/authentication.middleware';
 import Role from '../model/roleSchema';
 import authorizationMiddleware from '../middleware/authorization.middleware';
+import Purchase, { IPurchase } from '../model/purchaseSchema';
+import { hydratePurchases } from '../utils/purchase.utils';
 
 @Controller('api/user')
 @ClassMiddleware([authenticationMiddleware, authorizationMiddleware])
@@ -285,6 +287,130 @@ export default class UserController {
    *      500:
    *        description: Error en el servidor
    */
+
+  @Get('report/top-five-must-purchases')
+  private async getTopFiveMustPurchases(req: Request, res: Response) {
+    const start = Date.now();
+    try {
+      req.metrics.requestCounter.inc({
+        method: req.method,
+        status_code: res.statusCode,
+      });
+
+      const access_token = req.access_token!;
+
+      const users = await Purchase.aggregate([
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            itemId: 1,
+            quantity: 1,
+            price: 1,
+            user: 1,
+            createdDate: 1,
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            itemId: 1,
+            quantity: 1,
+            price: 1,
+            createdDate: 1,
+            user: { $arrayElemAt: ['$user._id', 0] },
+          },
+        },
+        {
+          $sort: {
+            createdDate: -1,
+          },
+        },
+        {
+          $group: {
+            _id: '$user',
+            purchases: {
+              $push: {
+                purchaseId: '$$ROOT._id',
+                itemId: '$$ROOT.itemId',
+                quantity: '$$ROOT.quantity',
+                price: '$$ROOT.price',
+                createdDate: '$$ROOT.createdDate',
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: {
+            count: -1,
+          },
+        },
+        { $limit: 5 },
+      ]);
+
+      let hydratedUsers: any[] = [];
+      if (users.length > 0) {
+        hydratedUsers = await Promise.all(
+          users.map(
+            async (user: { _id: string; purchases: IPurchase[]; count: number }) => {
+              const foundUser = await User.findById(user._id)
+                .select('-password -roles -favorites -purchases')
+                .lean();
+              const hydratedLastPurchase = (await hydratePurchases(
+                [user.purchases[0]],
+                access_token,
+                user._id
+              ))[0];
+
+              return {
+                user: foundUser,
+                lastPurchase: hydratedLastPurchase,
+                count: user.count,
+              };
+            }
+          )
+        );
+      }
+
+      return res
+        .status(StatusCodes.OK)
+        .json(new ApiResponse('Usuarios encontrados', StatusCodes.OK, hydratedUsers));
+    } finally {
+      const responseTimeInMs = Date.now() - start;
+      req.metrics.httpRequestTimer
+        .labels(req.method, req.route.path, res.statusCode.toString())
+        .observe(responseTimeInMs);
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/user/report/top-five-must-purchases:
+   *  get:
+   *    summary: Obtener top 5 de usuarios con mas compras
+   *    description: Es necesario tener permisos de Administrador
+   *    security:
+   *      - bearerAuth: []
+   *    tags:
+   *      - user
+   *    responses:
+   *      200:
+   *        description: Usuarios encontrados
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/ApiResponseToTopFiveMustPurchases'
+   *      500:
+   *        description: Error en el servidor
+   */
 }
 
 /**
@@ -307,6 +433,15 @@ export default class UserController {
  *              type: array
  *              items:
  *                $ref: '#/components/schemas/User'
+ *    ApiResponseToTopFiveMustPurchases:
+ *      allOf:
+ *        - $ref: '#/components/schemas/ApiResponse'
+ *        - type: object
+ *          properties:
+ *            data:
+ *              type: array
+ *              items:
+ *                $ref: '#/components/schemas/TopFiveMustPurchases'
  *    User:
  *      type: object
  *      properties:
@@ -344,5 +479,42 @@ export default class UserController {
  *        email:
  *          type: string
  *        password:
+ *          type: string
+ *    TopFiveMustPurchases:
+ *      type: object
+ *      properties:
+ *        user:
+ *          $ref: '#/components/schemas/User'
+ *        lastPurchase:
+ *          $ref: '#/components/schemas/TopFivePurchase'
+ *        count:
+ *          type: integer
+ *    TopFivePurchase:
+ *      type: object
+ *      required: [itemId, user, purchaseId, price, quantity, createdDatePurchase, hydrated]
+ *      properties:
+ *        itemId:
+ *          type: string
+ *        user:
+ *          type: string
+ *        purchaseId:
+ *          type: string
+ *        price:
+ *          type: integer
+ *        quantity:
+ *          type: integer
+ *        createdDatePurchase:
+ *          type: string
+ *        hydrated:
+ *          $ref: '#/components/schemas/Hydrated'
+ *        favoriteId:
+ *          type: string
+ *        comment:
+ *          type: string
+ *        rating:
+ *          type: integer
+ *          minimum: 0
+ *          maximum: 10
+ *        createdDateFavorite:
  *          type: string
  */

@@ -3,33 +3,52 @@ import { check, sleep } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '10s', target: 4 },
-    { duration: '30s', target: 10 },
-    { duration: '5s', target: 0 },
+    { duration: '10s', target: 10 },
+    { duration: '1m', target: 25 },
+    { duration: '25s', target: 15 },
+    { duration: '20s', target: 30 },
+    { duration: '20s', target: 40 },
+    { duration: '10s', target: 10 },
+    { duration: '10s', target: 0 },
   ],
 };
 
-const USERNAME = `ucomprador@email.com`; // Set your own email or `${randomString(10)}@example.com`;
+const EMAIL = `ucomprador@email.com`;
 const PASSWORD = '12345678';
 
-const BASE_URL = 'https://apc-backend-pdes-s1-2024-production.up.railway.app';
+// const BASE_URL = 'https://apc-backend-pdes-s1-2024-production.up.railway.app';
+const BASE_URL = 'http://host.docker.internal:8080';
 
 export function setup() {
   const res = http.post(`${BASE_URL}/api/auth/login`, {
-      username: USERNAME,
-      password: PASSWORD,
+    email: EMAIL,
+    password: PASSWORD,
   });
-  const token = res.token;
-  
+  const token = JSON.parse(res.body).data.token;
+
   check(token, { 'logged in successfully': () => token !== '' });
 
   return token;
 }
 
+const searchWords = [
+  'monitor',
+  'smartwatch',
+  'ventana de aluminio',
+  'block de hojas A4',
+  'remera negra',
+  'zapatillas deportivas',
+];
+
 export default function (token) {
-  const response = http.get(`${BASE_URL}/api/meli/search?q=monitor`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  var randomNumber = Math.floor(Math.random() * searchWords.length);
+
+  const response = http.get(
+    `${BASE_URL}/api/meli/search?q=${searchWords[randomNumber]}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
   check(response, { 'status is 200': (r) => r.status === 200 });
   sleep(1);
 }
