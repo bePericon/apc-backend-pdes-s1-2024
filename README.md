@@ -14,6 +14,10 @@ Using latest versions for all technologies (March 2024)
 - MongoDB (Mongoose 8.2)
 - Swagger 2 (OpenAPI 3)
 
+## Class diagram
+
+![image](https://github.com/bePericon/apc-backend-pdes-s1-2024/assets/13911427/a1742231-945b-41d8-92e5-5d78811f9cf0)
+
 ## Develop environment
 
 - Change name file **.env.example** to **.env**
